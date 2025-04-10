@@ -1,6 +1,6 @@
 # VEGA ⦡ Bot
 
-**Bot ID:** `795551166393876481`
+**Bot ID:** `795551166393876481` | **[Посмотреть полную информацию про бота на Gitbook](https://never-see.gitbook.io/vega-bot/russian-language)**
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/efd0dff5-f766-4e37-8fa0-b5fbb5a079d9" alt="VEGA Bot" width="400"/>
