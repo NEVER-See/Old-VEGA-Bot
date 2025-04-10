@@ -1,0 +1,66 @@
+
+██╗░░░██╗███████╗░██████╗░░█████╗░
+██║░░░██║██╔════╝██╔════╝░██╔══██╗
+╚██╗░██╔╝█████╗░░██║░░██╗░███████║
+░╚████╔╝░██╔══╝░░██║░░╚██╗██╔══██║
+░░╚██╔╝░░███████╗╚██████╔╝██║░░██║
+░░░╚═╝░░░╚══════╝░╚═════╝░╚═╝░░╚═╝
+
+
+
+█▀▄▀█ ▄▀█ █ █▄░█   █ █▄░█ █▀▀ █▀█ █▀█ █▀▄▀█ ▄▀█ ▀█▀ █ █▀█ █▄░█
+█░▀░█ █▀█ █ █░▀█   █ █░▀█ █▀░ █▄█ █▀▄ █░▀░█ █▀█ ░█░ █ █▄█ █░▀█
+
+ID: 795551166393876481
+Token: 
+
+
+
+█▀▀ █▄░█  |  █▀▄ █▀▀ █▀ █▀▀ █▀█ █ █▀█ ▀█▀ █ █▀█ █▄░█   █ █▄░█   █▀▀ █▄░█ █▀▀ █░░ █ █▀ █░█
+██▄ █░▀█  |  █▄▀ ██▄ ▄█ █▄▄ █▀▄ █ █▀▀ ░█░ █ █▄█ █░▀█   █ █░▀█   ██▄ █░▀█ █▄█ █▄▄ █ ▄█ █▀█
+
+VEGA ⦡ is an easy-to-use bot. Executes the commands specified in the list by the command v!help.
+
+
+Special qualities
+• Quick response to new bots with the AntiBot function enabled.
+• Ban the bot with information about the invitation (Audit Log | Ban).
+• A white list of 288 verified, verified bots.
+
+
+Protection from bots
+The bot is able to protect your server from crash only if the AntiBot function is enabled! Write the command v!antibot on and the bot will protect your server from unknown bots. (⚠️ There is no protection against Self-bots!)
+VEGA ⦡ - will start banning newly invited bots to the server. The bot has a white list and it will increase over time. Verified bots are checked, each command, functionality, appearance.
+
+
+Bot Features
+• ⚙️ General functionality:  You can configure the bot prefix on your server.
+• 🧰 Moderation:  Punish violators, issue mute, kick, ban.
+• 🛡️ AntiBot:  It will save your server from crashing if the AntiBot function is enabled!
+• ⌨️ Commands:  You can restrict the bot's work in certain channels.
+
+
+
+
+█▀█ █░█  |  █▀▄ █▀▀ █▀ █▀▀ █▀█ █ █▀█ ▀█▀ █ █▀█ █▄░█   █ █▄░█   █▀█ █░█ █▀ █▀ █ ▄▀█ █▄░█
+█▀▄ █▄█  |  █▄▀ ██▄ ▄█ █▄▄ █▀▄ █ █▀▀ ░█░ █ █▄█ █░▀█   █ █░▀█   █▀▄ █▄█ ▄█ ▄█ █ █▀█ █░▀█
+
+VEGA ⦡ - простой в использовании бот. Выполняет указанные в списке команды по команде v!help.
+
+
+Особые качества
+• Быстрое реагирование на новых ботов с включенной функцией AntiBot.
+• Бан бота с информацией о приглашении (Журнал аудита | Бан).
+• Белый список из 288 проверенных, верифицированных ботов.
+
+
+Защита от ботов
+Бот способен защитить ваш сервер от краша, только если функция AntiBot включена! Напишите команду v!antibot on и бот защитит ваш сервер от неизвестных ботов. (⚠️ Защиты от Self-ботов нет!)
+VEGA ⦡ - начнет банить только что приглашенных ботов на сервер. У бота имеется белый список и он со временем будет увеличиваться. Верифицированные боты проверяются, каждая команда, функционал, внешний вид.
+
+
+Возможности бота
+• ⚙️ Общий функционал:  Вы можете настроить префикс бота на своем сервере.
+• 🧰 Модерирование:  Наказывайте нарушителей, выдавайте мьют, кикайте, баньте.
+• 🛡️ Антибот:  Спасет ваш сервер от краша, если функция AntiBot включена!
+• ⌨️ Команды:  Вы можете ограничивать работу бота в определенных каналах.

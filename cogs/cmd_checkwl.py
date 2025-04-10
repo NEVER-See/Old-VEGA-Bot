@@ -1,0 +1,322 @@
+# -*- coding: utf-8 -*-
+import disnake as discord
+from disnake.channel import DMChannel
+from disnake.ext import tasks
+from disnake.utils import get
+import asyncio
+import datetime
+import time
+import random
+import json
+import os
+import re
+import requests
+import pymongo
+import typing
+import aiohttp
+#import word
+#import config
+#from discord import utils
+from disnake.ext import commands
+from random import randint
+from helper import *
+from cache import *
+from enum import Enum
+
+prefix = "/"
+
+class option(int, Enum):
+    all = 1
+    delbots = 2
+
+
+class class_checkwl(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+
+    #Проверить бота в белом списке
+    @commands.slash_command(name="checkwl", description="Checking bots in the ignored and whitelisted list | Проверка ботов в игнорируемом и белом списке")
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    async def checkwl(self, inter, bot: typing.Optional[discord.User]=None, option: option = commands.Param(description="Select an option | Укажите опцию") == None):
+        ctx=inter
+        try:
+            enabled = deactivatedata[0]["Option"]
+        except KeyError:
+            enabled = False
+        if enabled:
+            pass
+        else:
+            if await checkchannel(ctx):
+                if bot or option:
+                    try:
+                        if ctx.channel.id == 826326189324763166:
+                            if ctx.author.id in config["owner_ids"]:
+                                if bot:
+                                    if bot.bot:
+                                        w = gdata('vega', 'wlbots')
+                                        if str(bot.id) in w[str("Bots")]:
+                                            embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_check_mark:821700784927801394> Бот')} **{bot}** {get_language(ctx.guild.id,'есть в белом списке!')}\n\n{get_language(ctx.guild.id,':warning: **Внимание!**')}\n{get_language(ctx.guild.id,'Данного бота невозможно занести в игнорируемый список!')}\n\n**[{get_language(ctx.guild.id,'Проверить бота')}](https://discord.com/api/oauth2/authorize?client_id={bot.id}&permissions=8&scope=bot%20applications.commands)**", color=0x43b581)
+                                            embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                            await ctx.send(embed=embed)
+                                        else:
+                                            data = gdata('vega', 'antibot')
+                                            try:
+                                                enabled = data[str(ctx.guild.id)]
+                                            except KeyError:
+                                                enabled = False
+                                            if bot:
+                                                if enabled:
+                                                    wl = gdata('vega', 'ignorebots')
+                                                    try:
+                                                        enabled = False
+                                                        if str(ctx.guild.id) in wl:
+                                                            dop = wl[str(ctx.guild.id)]
+                                                        else:
+                                                            dop = ''
+                                                    except KeyError:
+                                                        print("[ ОШИБКА ] Произошла неизвестная ошибка!")
+                                                        pass
+                                                    if str(bot.id) in dop:
+                                                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}\n\n**[{get_language(ctx.guild.id,'Проверить бота')}](https://discord.com/oauth2/authorize?client_id={bot.id}&permissions=8&scope=bot )**", color=0xcc1a1d)
+                                                        embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'игнорируется на данном сервере!')}", inline=False)
+                                                        embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                        await ctx.send(embed=embed)
+                                                    else:
+                                                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}\n\n**[{get_language(ctx.guild.id,'Проверить бота')}](https://discord.com/oauth2/authorize?client_id={bot.id}&permissions=8&scope=bot )**", color=0xcc1a1d)
+                                                        embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'может быть забанен функцией **AntiBot**!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {bot.id}`, {get_language(ctx.guild.id,'чтобы занести бота в игнорируемый список.')}\n\n{get_language(ctx.guild.id,'Если хотите пропустить бота на сервер, не добавляя его в игнорируемый список, то выдайте ему пропуск командой:')} `{prefix}pass add {bot.id}`", inline=False)
+                                                        embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                        await ctx.send(embed=embed)
+                                                else:
+                                                    wl = gdata('vega', 'ignorebots')
+                                                    try:
+                                                        enabled = False
+                                                        if str(ctx.guild.id) in wl:
+                                                            dop = wl[str(ctx.guild.id)]
+                                                        else:
+                                                            dop = ''
+                                                    except KeyError:
+                                                        print("[ ОШИБКА ] Произошла неизвестная ошибка!")
+                                                        pass
+                                                    if str(bot.id) in dop:
+                                                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}\n\n**[{get_language(ctx.guild.id,'Проверить бота')}](https://discord.com/oauth2/authorize?client_id={bot.id}&permissions=8&scope=bot )**", color=0xcc1a1d)
+                                                        embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'игнорируется на данном сервере!')}", inline=False)
+                                                        embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                        await ctx.send(embed=embed)
+                                                    else:
+                                                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}\n\n**[{get_language(ctx.guild.id,'Проверить бота')}](https://discord.com/oauth2/authorize?client_id={bot.id}&permissions=8&scope=bot )**", color=0xcc1a1d)
+                                                        embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'не игнорируется на данном сервере!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {bot.id}`, {get_language(ctx.guild.id,'чтобы занести бота в игнорируемый список.')}", inline=False)
+                                                        embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                        await ctx.send(embed=embed)
+                                    else:
+                                        embed = discord.Embed(description=f"<a:vega_x:810843492266803230> **{bot.id}** {get_language(ctx.guild.id,'не является ботом!')}", color=0xcc1a1d)
+                                        await ctx.send(embed=embed, delete_after=12.0)
+                                
+                                elif option:
+                                    if option==2:
+                                        w = gdata('vega', 'wlbots')
+                                        ig = []
+                                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:b_loading:857131960223662104> Пожалуйста подождите, выполняется проверка ботов...')}", color=0xf4900c)
+                                        await ctx.send(embed=embed)
+                                        banned_users = await self.client.get_guild(909463311937056788).bans()
+                                        for ban_entry in banned_users:
+                                            user = ban_entry.user
+                                            if user.bot and user.name.startswith('Deleted User') and str(user.id) in w[str("Bots")]:
+                                                ig.append(user.id)
+                                                            
+                                        embed = discord.Embed(title=f"{get_language(ctx.guild.id,'<a:vega_check_mark:821700784927801394> Проверка завершена!')}", color=0x43b581)
+                                        if len(ig) == 0:
+                                            embed.description = f"{get_language(ctx.guild.id,'Все боты были проверены.')}"
+                                        else:
+                                            embed.description = f"{get_language(ctx.guild.id,'Аппликации данных ботов возможно удалены!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}wl remove {get_language(ctx.guild.id,'@пользователь')}`, {get_language(ctx.guild.id,'чтобы удалить бота из белого списка.')}"
+                                            embed.add_field(name='Боты:', value=', '.join(map(str, ig)), inline=False)
+                                        await ctx.edit_original_message(embed=embed)
+                                
+                                    elif option==1:
+                                        w = gdata('vega', 'wlbots')
+                                        wl = gdata('vega', 'ignorebots')
+                                        ig = []
+                                        try:
+                                            enabled = False
+                                            if str(ctx.guild.id) in wl:
+                                                dop = wl[str(ctx.guild.id)]
+                                            else:
+                                                dop = ''
+                                        except KeyError:
+                                            print("[ ОШИБКА ] Произошла неизвестная ошибка!")
+                                            pass
+                                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:b_loading:857131960223662104> Пожалуйста подождите, выполняется проверка ботов...')}", color=0xf4900c)
+                                        await ctx.send(embed=embed)
+                                        for member in [m for m in ctx.guild.members if m.bot]:
+                                            if not str(member.id) in w[str("Bots")] and not str(member.id) in dop:
+                                                ig.append(member.mention)
+                                        bot1 = len([m for m in ctx.guild.members if m.bot])
+                                        if bot1 > 1:
+                                        #if member in [m for m in ctx.guild.members if m.bot and m != ctx.guild.me]:
+                                            embed = discord.Embed(title=f"{get_language(ctx.guild.id,'<a:vega_check_mark:821700784927801394> Проверка завершена!')}", color=0x43b581)
+                                            if len(ig) == 0:
+                                                embed.description = f"{get_language(ctx.guild.id,'Все боты были проверены.')}"
+                                            else:
+                                                data = gdata('vega', 'antibot')
+                                                try:
+                                                    enabled = data[str(member.guild.id)]
+                                                except KeyError:
+                                                    enabled = False
+                                                if member.bot:
+                                                    if enabled:
+                                                        embed.description = f"{get_language(ctx.guild.id,'Данные боты могут быть забанены функцией **AntiBot**!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {get_language(ctx.guild.id,'@пользователь')}`, {get_language(ctx.guild.id,'чтобы занести ботов в игнорируемый список.')}"
+                                                        embed.add_field(name='Боты:', value=', '.join(ig), inline=False)
+                                                    else:
+                                                        embed.description = f"{get_language(ctx.guild.id,'Данные боты не занесены в игнорируемый список!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {get_language(ctx.guild.id,'@пользователь')}`, {get_language(ctx.guild.id,'чтобы занести ботов в список.')}"
+                                                        embed.add_field(name=f"{get_language(ctx.guild.id,'Боты:')}", value=', '.join(ig), inline=False)
+                                            await ctx.edit_original_message(embed=embed)
+                                        else:
+                                            embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Боты не обнаружены!')}", color=0xcc1a1d)
+                                            await ctx.edit_original_message(embed=embed)
+                                    else:
+                                        try:
+                                            option = int(option)
+                                            if 1e17 < option < 1e18:
+                                                embed = discord.Embed(description=f"<a:vega_x:810843492266803230> **{option}** {get_language(ctx.guild.id,'не является пользователем!')}", color=0xcc1a1d)
+                                                await ctx.send(embed=embed, delete_after=12.0)
+                                            else:
+                                                pass
+                                        except:
+                                            ctx.command.reset_cooldown(ctx)
+                    except:
+                        pass
+
+                    if ctx.channel.id != 826326189324763166:
+                        if bot:
+                            if bot.bot:
+                                w = gdata('vega', 'wlbots')
+                                if str(bot.id) in w[str("Bots")]:
+                                    embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_check_mark:821700784927801394> Бот')} **{bot}** {get_language(ctx.guild.id,'есть в белом списке!')}\n\n{get_language(ctx.guild.id,':warning: **Внимание!**')}\n{get_language(ctx.guild.id,'Данного бота невозможно занести в игнорируемый список!')}", color=0x43b581)
+                                    embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                    await ctx.send(embed=embed)
+                                else:
+                                    data = gdata('vega', 'antibot')
+                                    try:
+                                        enabled = data[str(ctx.guild.id)]
+                                    except KeyError:
+                                        enabled = False
+                                    if bot:
+                                        if enabled:
+                                            wl = gdata('vega', 'ignorebots')
+                                            try:
+                                                enabled = False
+                                                if str(ctx.guild.id) in wl:
+                                                    dop = wl[str(ctx.guild.id)]
+                                                else:
+                                                    dop = ''
+                                            except KeyError:
+                                                print("[ ОШИБКА ] Произошла неизвестная ошибка!")
+                                                pass
+                                            if str(bot.id) in dop:
+                                                embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}", color=0xcc1a1d)
+                                                embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'игнорируется на данном сервере!')}", inline=False)
+                                                embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                await ctx.send(embed=embed)
+                                            else:
+                                                embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}", color=0xcc1a1d)
+                                                embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'может быть забанен функцией **AntiBot**!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {bot.id}`, {get_language(ctx.guild.id,'чтобы занести бота в игнорируемый список.')}\n\n{get_language(ctx.guild.id,'Если хотите пропустить бота на сервер, не добавляя его в игнорируемый список, то выдайте ему пропуск командой:')} `{prefix}pass add {bot.id}`", inline=False)
+                                                embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                await ctx.send(embed=embed)
+                                        else:
+                                            wl = gdata('vega', 'ignorebots')
+                                            try:
+                                                enabled = False
+                                                if str(ctx.guild.id) in wl:
+                                                    dop = wl[str(ctx.guild.id)]
+                                                else:
+                                                    dop = ''
+                                            except KeyError:
+                                                print("[ ОШИБКА ] Произошла неизвестная ошибка!")
+                                                pass
+                                            if str(bot.id) in dop:
+                                                embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}", color=0xcc1a1d)
+                                                embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'игнорируется на данном сервере!')}", inline=False)
+                                                embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                await ctx.send(embed=embed)
+                                            else:
+                                                embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Бота')} **{bot}** {get_language(ctx.guild.id,'нет в белом списке!')}", color=0xcc1a1d)
+                                                embed.add_field(name=f"{get_language(ctx.guild.id,':warning: Внимание!')}", value=f"**{bot}** {get_language(ctx.guild.id,'не игнорируется на данном сервере!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {bot.id}`, {get_language(ctx.guild.id,'чтобы занести бота в игнорируемый список.')}", inline=False)
+                                                embed.set_thumbnail(url=bot.avatar.replace(size=1024, format="png"))
+                                                await ctx.send(embed=embed)
+                            else:
+                                embed = discord.Embed(description=f"<a:vega_x:810843492266803230> **{bot.id}** {get_language(ctx.guild.id,'не является ботом!')}", color=0xcc1a1d)
+                                await ctx.send(embed=embed, ephemeral=True)
+
+                        elif option:
+                            if option==2:
+                                embed = discord.Embed(description=f"**{get_language(ctx.guild.id,'Команда только для РАЗРАБОТЧИКОВ!')}**", color=0xcc1a1d)
+                                await ctx.send(embed=embed, ephemeral=True)
+
+                            elif option==1:
+                                w = gdata('vega', 'wlbots')
+                                wl = gdata('vega', 'ignorebots')
+                                ig = []
+                                try:
+                                    enabled = False
+                                    if str(ctx.guild.id) in wl:
+                                        dop = wl[str(ctx.guild.id)]
+                                    else:
+                                        dop = ''
+                                except KeyError:
+                                    print("[ ОШИБКА ] Произошла неизвестная ошибка!")
+                                    pass
+                                embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:b_loading:857131960223662104> Пожалуйста подождите, выполняется проверка ботов...')}", color=0xf4900c)
+                                await ctx.send(embed=embed)
+                                for member in [m for m in ctx.guild.members if m.bot]:
+                                    if not str(member.id) in w[str("Bots")] and not str(member.id) in dop:
+                                        ig.append(member.mention)
+                                bot1 = len([m for m in ctx.guild.members if m.bot])
+                                if bot1 > 1:
+                                #if member in [m for m in ctx.guild.members if m.bot and m != ctx.guild.me]:
+                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'<a:vega_check_mark:821700784927801394> Проверка завершена!')}", color=0x43b581)
+                                    if len(ig) == 0:
+                                        embed.description = f"{get_language(ctx.guild.id,'Все боты были проверены.')}"
+                                    else:
+                                        data = gdata('vega', 'antibot')
+                                        try:
+                                            enabled = data[str(member.guild.id)]
+                                        except KeyError:
+                                            enabled = False
+                                        if member.bot:
+                                            if enabled:
+                                                embed.description = f"{get_language(ctx.guild.id,'Данные боты могут быть забанены функцией **AntiBot**!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {get_language(ctx.guild.id,'@пользователь')}`, {get_language(ctx.guild.id,'чтобы занести ботов в игнорируемый список.')}"
+                                                embed.add_field(name='Боты:', value=', '.join(ig), inline=False)
+                                            else:
+                                                embed.description = f"{get_language(ctx.guild.id,'Данные боты не занесены в игнорируемый список!')}\n{get_language(ctx.guild.id,'Воспользуйтесь командой')} `{prefix}ignore add {get_language(ctx.guild.id,'@пользователь')}`, {get_language(ctx.guild.id,'чтобы занести ботов в список.')}"
+                                                embed.add_field(name=f"{get_language(ctx.guild.id,'Боты:')}", value=', '.join(ig), inline=False)
+                                    await ctx.edit_original_message(embed=embed)
+                                else:
+                                    embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Боты не обнаружены!')}", color=0xcc1a1d)
+                                    await ctx.edit_original_message(embed=embed)
+                            else:
+                                try:
+                                    option = int(option)
+                                    if 1e17 < option < 1e18:
+                                        embed = discord.Embed(description=f"<a:vega_x:810843492266803230> **{option}** {get_language(ctx.guild.id,'не является пользователем!')}", color=0xcc1a1d)
+                                        await ctx.send(embed=embed, ephemeral=True)
+                                    else:
+                                        pass
+                                except:
+                                    ctx.command.reset_cooldown(ctx)
+                else:
+                    embed = discord.Embed(description=f"{get_language(ctx.guild.id,'<a:loupe:811137886141153320> Укажите одного или всех ботов!')}", color=0x8899a6)
+                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора или Управлениея сервером, могут проверить наличие одного или всех ботов из сервера в белом списке!')}", inline=False)
+                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргумены:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID бота}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{all}')}`", inline=False)
+                    embed.add_field(name=f"{get_language(ctx.guild.id,'Пример:')}", value=f"`{prefix}checkwl {get_language(ctx.guild.id,'ID бота')}` {get_language(ctx.guild.id,'или')} `{prefix}checkwl all`", inline=False)
+                    embed.set_footer(icon_url=ctx.author.avatar.replace(), text=f'{ctx.author}')
+                    await ctx.send(embed=embed, ephemeral=True)
+                    ctx.command.reset_cooldown(ctx)
+            else:
+                embed = discord.Embed(title=f"{get_language(ctx.guild.id,':warning: Эта команда доступна только в определенных каналах!')}", color=0xfcc21b)
+                await ctx.send(embed=embed, ephemeral=True)
+                ctx.command.reset_cooldown(ctx)
+
+
+def setup(client):
+    client.add_cog(class_checkwl(client))
