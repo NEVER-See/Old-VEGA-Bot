@@ -1,17 +1,18 @@
 {
-    "owner_ids": [discord user id],
-    "shard_count": 4,
+    "owner_ids": [
+        discord user id,
+    ],
+    "shard_count": 2,
     "debug_mode": true,
     "cluster_url": "////.mongodb.net",
     "db_username": "Name",
-    "db_password": "password",
-
-    "release":{
+    "db_password": "mongodb password",
+    "release": {
         "bot_token": "release bot",
-        "db_name": "Name"
+        "db_name": "mongodb Name"
     },
-    "debug":{
+    "debug": {
         "bot_token": "debug bot - debug_mode true",
-        "db_name": "Name"
+        "db_name": "mongodb Name"
     }
 }

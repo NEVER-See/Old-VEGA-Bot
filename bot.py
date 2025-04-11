@@ -1,33 +1,33 @@
-# -*- coding: utf-8 -*-
-import disnake as discord
-import disnake
 import asyncio
 import datetime
-import time
-import random
 import json
 import os
-import re
-from discord import activity
-from discord import webhook
-from discord.channel import DMChannel
-import requests
-import pymongo
-import typing
-import aiohttp
+import time
+from tracemalloc import stop
+from unittest import skip
+#from termcolor import colored, cprint — для вывода красивого текста в консоль
+#from colorama import init, Fore, Back, Style
 
+import disnake as discord
+import requests
+#from discord import activity
+#from discord import webhook
+#from discord.channel import DMChannel
+# from discord import utils
+#from random import randint
+from discord.ext import commands, tasks
+from discord.utils import get
+from disnake.ext import commands, tasks
+
+from cache import *
+# \/ convert, hmsd1, urlspotify
+from helper import get_language, hmsd
+
+#import re
+#import typing
+#import aiohttp
 # import word
 # import config
-# from discord import utils
-from discord.ext import tasks
-from discord.utils import get
-from discord.ext import commands
-from random import randint
-from disnake.ext import commands
-from helper import checkchannel, convert, hmsd, hmsd1, urlspotify, get_language
-from cache import *
-import json
-from enum import Enum
 
 # from plot import send_graph
 # from Cybernator import Paginator as pag
@@ -36,7 +36,6 @@ from enum import Enum
 # from discord_buttons import DiscordButton, Button, ButtonStyle, InteractionType
 # from PIL import Image, ImageFont, ImageDraw, ImageOps
 # from pypresence import Presence
-
 # from discord.http import Route
 # print(Route.BASE)
 
@@ -53,43 +52,29 @@ max_msg_per_window_bot = 10
 author_msg_times = {}"""
 
 
-intents = disnake.Intents.default()
+intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.presences = True
-
-
-# Активиция MongoDB
-with open("json/config.json", "r", encoding="utf-8") as f:
-    config = json.load(f)
-
-
-# Для MongoDB временно, потом нужно удалить
-try:
-    MDB_key = open("important_information/Tokens/token_MDB.txt", "r").readline()
-    mongo = pymongo.MongoClient(MDB_key)
-except:
-    print("!!! [ ОШИБКА ]  Нет подключения к MongoDB!\n")
-
-
-def gdata(db, collection):
-    return mongo[db][collection].find_one()
-
-
-def wdata(db, collection, data):
-    mongo[db][collection].update(gdata(db, collection), data)
+intents.webhooks = True
 
 
 # Клиент — сам бот
 #test_guilds=[824906215304986625, 826022179568615445, 779351525586632784]
 prefix = "/"
+#awl = gdata('vega', 'wlbots')
+#acount = awl["Bots"].count(',')
+with open('json/count_wlbots.json', 'r') as f:
+    ct = json.load(f)
+acount = ct["count_wlbots"]["count"]
 client = commands.AutoShardedBot(
     intents=intents,
     command_prefix=prefix,
-    sync_permissions=True,
     shard_count=config["shard_count"],
-    activity=discord.Game("loading..."),
+    status=discord.Status.dnd,
+    activity=discord.Activity(name=f"Bots wl: {acount} | vega-bot.ru", type=discord.ActivityType.watching),
 )
+#activity=discord.Game("loading..."),
 client.remove_command("info")
 client.remove_command("clear")
 client.remove_command("help")
@@ -99,18 +84,23 @@ if config["debug_mode"]:
     cpath = "debug"
 
 
+# Активиция MongoDB
+with open("json/config.json", "r", encoding="utf-8") as f:
+    config = json.load(f)
+
+
 # Коги — запуск команд
 for file in os.listdir("./cogs"):
     if file.endswith(".py"):
         # try:
         client.load_extension("cogs." + file[:-3])
-        print(f"[ ИНФО ]  Cog загружен: {file[:-3]}\n")
+        print(f"\033[36m [ ЗАГРУЗКА ]  Cog загружен: {file[:-3]}\n\033[0m")
         """except:
             print(f"[ ОШИБКА ]  Cog не загружен: {file[:-3]}\n")"""
 
 
 # Кол-во серверов и шардов, мониторинг бота
-@tasks.loop(minutes=35)
+@tasks.loop(minutes=30)
 async def update_sdc_stats():
     if client.user.id == 795551166393876481:
         API_ds_key = open(
@@ -120,43 +110,30 @@ async def update_sdc_stats():
             r = requests.post(
                 "https://api.server-discord.com/v2/bots/795551166393876481/stats",
                 headers={"Authorization": f"SDC {API_ds_key}"},
-                data={"shards": client.shard_count, "servers": len(client.guilds)},
+                data={"shards": client.shard_count,
+                      "servers": len(client.guilds)},
             )
-            print(f"[ ИНФО ]  Серверов: {len(client.guilds)}\n")
-            print(f"[ ИНФО ]  Отправляю данные на BDSC {r}\n")
+            print(f"\033[36m [ ИНФО ]  Серверов: {len(client.guilds)}\n\033[0m")
+            print(f"\033[36m [ ИНФО ]  Отправляю данные на BDSC {r}\n\033[0m")
         except Exception as e:
-            print(f"!!! [ ОШИБКА ]  Не удалось обновить счетчик из-за: {e}\n")
+            print(f"\033[31m !!! [ ОШИБКА ]  Не удалось обновить счетчик из-за: {e}\n\033[0m")
+            pass
     else:
-        print("[ ИНФО ]  Активирован тестовый бот! (Мониторинг: BSDC)\n")
+        print("\033[36m [ ИНФО ]  Активирован тестовый бот! (Мониторинг: BSDC)\n\033[0m")
+        pass
 
 
-# Префикс бота и его смена в json
-@tasks.loop(minutes=5)
+# Сайт обноволение
+@tasks.loop(minutes=1)
 async def update_stats():
     if client.user.id == 795551166393876481:
         try:
-            w = gdata("vega", "wlbots")
-            count1 = w["Bots"].count(",")
-
-            user = client.get_guild(826022179568615445).me
-            online = discord.Status.online
-            dnd = discord.Status.dnd
-            if user.status == online or dnd:
-                bstatus = f"https://cdn.discordapp.com/attachments/713751423128698950/842622758664142868/everything_is_stable.gif"
-            if user.status == discord.Status.idle:
-                bstatus = f"https://cdn.discordapp.com/attachments/713751423128698950/842622756885102632/possible_shutdown.gif"
-            if user.status == discord.Status.offline:
-                bstatus = f"https://cdn.discordapp.com/attachments/777495710252924928/894569603726974976/not_online.png"
-
-            if user.status == online or dnd:
-                bstatus1 = f"Онлайн"
-            if user.status == discord.Status.idle:
-                bstatus1 = f"Деактивирован"
-            if user.status == discord.Status.offline:
-                bstatus1 = f"Не в сети"
+            with open('json/count_wlbots.json', 'r') as f:
+                ct = json.load(f)
+            count1 = ct["count_wlbots"]["count"]
 
             requests.post(
-                "https://vegabot.xyz/vegabot/updatesg.php",
+                "https://vega-bot.ru/updatesg.php",
                 data={
                     "SERVERS": len(client.guilds),
                     "SHARDS": len(client.shards),
@@ -165,8 +142,6 @@ async def update_stats():
                     "OWN2": client.get_user(750245767142441000),
                     "OWN3": client.get_user(777494101179629569),
                     "WLBOTS": count1,
-                    "STATUS": bstatus,
-                    "STATUS1": bstatus1,
                 },
             )
 
@@ -178,12 +153,56 @@ async def update_stats():
             g1 = len([g for g in client.guilds if g.shard_id == 1])
             g2 = len([g for g in client.guilds if g.shard_id == 2])
             g3 = len([g for g in client.guilds if g.shard_id == 3])
-            requests.get(f'https://vegabot.xyz/vegabot/status/shards/update.php?s0p={int(shard0.latency * 1000)}&s0s={g0}&s1p={int(shard1.latency * 1000)}&s1s={g1}&avg={int(client.latency * 1000)}&s2s={g2}&avg2={int(client.latency * 1000)}&s3s={g3}&avg3={int(client.latency * 1000)}')"""
-            print("[ ИНФО ]  Сервера и шарды были обновлены на сайте!\n")
+            requests.get(f'https://vega-bot.ru/status/shards/update.php?s0p={int(shard0.latency * 1000)}&s0s={g0}&s1p={int(shard1.latency * 1000)}&s1s={g1}&avg={int(client.latency * 1000)}&s2s={g2}&avg2={int(client.latency * 1000)}&s3s={g3}&avg3={int(client.latency * 1000)}')"""
+            print("\033[36m [ ИНФО ]  Сервера и шарды были обновлены на сайте!\n\033[0m")
         except:
-            print("!!! [ ОШИБКА ]  Что-то пошло не так!\n")
+            print("\033[31m [ ОШИБКА ]  Что-то пошло не так!\n\033[0m")
+            pass
     else:
-        print("[ ИНФО ]  Активирован тестовый бот! (Сайт VEGA)\n")
+        print("\033[36m [ ИНФО ]  Активирован тестовый бот! (Сайт VEGA)\n\033[0m")
+        pass
+
+
+# Кик неверифицированных пользователей на сервере VEGA
+@tasks.loop(seconds=10)
+async def update_verify():
+    meguild = client.get_guild(423107666253185024)
+    if meguild:
+        for member in [m for m in meguild.members if not m.bot and m.status == discord.Status.offline and not meguild.get_role(777795011177086986) in m.roles]:
+            if member.status == discord.Status.offline:
+                if meguild.get_role(777795011177086986) not in member.roles:
+                    emb = discord.Embed(
+                        title=f"<:kick:842447666990153828> Вы были изгнаны:", color=0xf1a019)
+                    emb.add_field(name=f"С сервера:",
+                                  value=f'{meguild.name}', inline=False)
+                    emb.add_field(name=f"Модератором:",
+                                  value=f'VEGA ⦡#7724', inline=False)
+                    emb.add_field(
+                        name=f"По причине:", value=f"Неверифицированный\n` Не в сети `", inline=False)
+                    emb.add_field(
+                        name=f"Просьба:", value=f"**При заходе на сервер, просим вас быть в сети для прохождения верификации!**", inline=False)
+                    await member.send(embed=emb)
+                    await member.kick()
+
+                    emb = discord.Embed(
+                        title=f"<:kick:842447666990153828> Кик", color=0xf1a019)
+                    emb.add_field(name=f"Модератор:",
+                                  value=f'VEGA ⦡#7724', inline=True)
+                    emb.add_field(name=f"Пользователь:",
+                                  value=f'{member.name}', inline=True)
+                    emb.add_field(
+                        name=f"Причина:", value=f"Неверифицированный\n` Не в сети `", inline=False)
+                    emb.set_thumbnail(
+                        url='https://i.postimg.cc/vZ12gJY4/kick.png')
+                    await client.get_channel(934545389728698408).send(embed=emb)
+                else:
+                    print(f"{member.name} [{member.id}] — верифицирован!\n")
+                    pass
+            else:
+                print(f"{member.name} [{member.id}] — в сети!\n")
+                pass
+    else:
+        pass
 
 
 class FLAGS:
@@ -200,153 +219,165 @@ async def on_connect():
         FLAGS.started_tasks = True
         update_sdc_stats.start()
         update_stats.start()
+        update_verify.start()
         # client.loop.create_task(refresh())
-        print("[ ЗАГРУЗКА ]  Запуск задач (tasks)...\n")
+        print("\033[32m [ ЗАГРУЗКА ]  Запуск задач (tasks)...\n\033[0m")
 
 
+global on_ready_start
+on_ready_start = True
 # Запуск бота
+
+
 @client.event
 async def on_ready():
-    # client.loop.create_task(update_stats())
-    client.start_time = datetime.datetime.now()
-    w = gdata("vega", "wlbots")
-    count1 = w["Bots"].count(",")
-    if count1:
-        print(f"[ ИНФО ]  Ботов в белом списке: {count1}\n")
-    else:
-        print("!!! [ ОШИБКА ]  Ботов в белом списке не обнаружено!\n")
-
-    try:
-        try:
-            enabled = deactivatedata[0]["Option"]
-        except KeyError:
-            enabled = False
-        if not enabled:
-            channel = client.get_channel(
-                812666804441841684
-            )  # получаем айди канала 812666804441841684
-            await channel.send("\🔄**` RESTART `**\nБот **VEGA ⦡#7724** был запущен!")
-            print(">>>  [ ЗАПУСК ]  БОТ включен и готов к работе!\n")
+    global on_ready_start
+    if on_ready_start:
+        # client.loop.create_task(update_stats())
+        client.start_time = datetime.datetime.now()
+        """
+        count1 = w["Bots"].count(",")
+        if count1:
+            print(f"\033[36m [ ИНФО ]  Ботов в белом списке: {count1}\n")
         else:
-            channel = client.get_channel(
-                812666804441841684
-            )  # получаем айди канала 812666804441841684
-            await channel.send(
-                "\🔄**` RESTART `**\nБот **VEGA ⦡#7724** был запущен (деактивирован)!"
-            )
-            print(f">>>  [ ЗАПУСК ]  В данный момент, бот деактивирован!\n")
-    except:
-        print(">>>  [ ОШИБКА ]  Сообщение о запуске бота небыло доставлено!\n")
-        pass
+            print("!!! [ ОШИБКА ]  Ботов в белом списке не обнаружено!\n")"""
+        try:
+            try:
+                enabled = deactivatedata[0]["Option"]
+            except KeyError:
+                enabled = False
+            if not enabled:
+                channel = client.get_channel(
+                    812666804441841684
+                )  # получаем айди канала 812666804441841684
+                await channel.send("\🔄**` RESTART `**\nБот **VEGA ⦡#7724** был запущен!")
+                print("\033[5;32m >>>\033[0m\033[32m   [ ЗАПУСК ]  БОТ включен и готов к работе!\nㅤ\033[0m")
+            else:
+                channel = client.get_channel(
+                    812666804441841684
+                )  # получаем айди канала 812666804441841684
+                await channel.send(
+                    "\🔄**` RESTART `**\nБот **VEGA ⦡#7724** был запущен (деактивирован)!"
+                )
+                print(
+                    f"\033[5;33m >>>\033[0m\033[33m   [ ЗАПУСК ]  В данный момент, бот деактивирован!\nㅤ\033[0m")
+        except:
+            print(
+                "\033[5;31m >>>\033[0m\033[31m   [ ОШИБКА ]  Сообщение о запуске бота небыло доставлено!\nㅤ\033[0m")
+            pass
 
-    # Статус бота (не беспокоить, играет в v!help, смотрит за сервером VEGA ⦡)
-    # guilds = await client.fetch_guilds(limit = None).flatten()
-    # guilds = client.guilds
+        # Статус бота (не беспокоить, играет в v!help, смотрит за сервером VEGA ⦡)
+        # guilds = await client.fetch_guilds(limit = None).flatten()
+        # guilds = client.guilds
 
-    # await client.change_presence(status=discord.Status.dnd, activity=discord.Game(f"v!help | Bots wl: 300+ | vegabot.xyz"))
+        # await client.change_presence(status=discord.Status.dnd, activity=discord.Game(f"v!help | Bots wl: 300+ | vega-bot.ru"))
 
-    while True:
-        try:
+        on_ready_start = False
+        while True:
+            await asyncio.sleep(600)
             try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                w = gdata('vega', 'wlbots')
-                count = w["Bots"].count(',')
-                await client.change_presence(status=discord.Status.dnd, activity=discord.Game(f"Bots wl: {count} | vegabot.xyz"))
-            else:
-                await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
-        except:
-            pass
-        await asyncio.sleep(300)
-        """try:
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    #w = wlbotsdata
+                    #count = w["Bots"].count(",")
+                    with open('json/count_wlbots.json', 'r') as f:
+                        ct = json.load(f)
+                    count1 = ct["count_wlbots"]["count"]
+                    await client.change_presence(status=discord.Status.dnd, activity=discord.Activity(name=f"Bots wl: {count1} | vega-bot.ru", type=discord.ActivityType.watching))
+                else:
+                    await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
+            except:
+                pass
+            """try:
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    await client.change_presence(status=discord.Status.dnd, activity=discord.Game(f"vega-bot.ru | v!help"))
+                else:
+                    await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
+            except:
+                pass
+            await asyncio.sleep(120)
             try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                await client.change_presence(status=discord.Status.dnd, activity=discord.Game(f"vegabot.xyz | v!help"))
-            else:
-                await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
-        except:
-            pass
-        await asyncio.sleep(120)
-        try:
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    await client.change_presence(status = discord.Status.dnd, activity= discord.Activity(name=f'{len(client.guilds)} servers', type= discord.ActivityType.watching))
+                else:
+                    await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
+            except:
+                pass
+            await asyncio.sleep(120)
             try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                await client.change_presence(status = discord.Status.dnd, activity= discord.Activity(name=f'{len(client.guilds)} servers', type= discord.ActivityType.watching))
-            else:
-                await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
-        except:
-            pass
-        await asyncio.sleep(120)
-        try:
-            try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                w = gdata('vega', 'wlbots')
-                count = w["Bots"].count(',')
-                await client.change_presence(status = discord.Status.dnd, activity= discord.Activity(name=f'{count} bots in the wl', type= discord.ActivityType.watching))
-            else:
-                await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
-        except:
-            pass
-        await asyncio.sleep(120)"""
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    w = gdata('vega', 'wlbots')
+                    count = w["Bots"].count(',')
+                    await client.change_presence(status = discord.Status.dnd, activity= discord.Activity(name=f'{count} bots in the wl', type= discord.ActivityType.watching))
+                else:
+                    await client.change_presence(status=discord.Status.idle, activity=discord.Game("DEACTIVATED"))
+            except:
+                pass
+            await asyncio.sleep(120)"""
 
-        """try:
+            """try:
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    await client.change_presence(
+                        status=discord.Status.dnd, activity=discord.Game("〔████[][] 60%〕")
+                    )
+                else:
+                    await client.change_presence(
+                        status=discord.Status.idle, activity=discord.Game("DEACTIVATED")
+                    )
+            except:
+                pass
+            await asyncio.sleep(20)
             try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                await client.change_presence(
-                    status=discord.Status.dnd, activity=discord.Game("〔████[][] 60%〕")
-                )
-            else:
-                await client.change_presence(
-                    status=discord.Status.idle, activity=discord.Game("DEACTIVATED")
-                )
-        except:
-            pass
-        await asyncio.sleep(20)
-        try:
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    await client.change_presence(
+                        status=discord.Status.dnd, activity=discord.Game("〔█████[] 80%〕")
+                    )
+                else:
+                    await client.change_presence(
+                        status=discord.Status.idle, activity=discord.Game("DEACTIVATED")
+                    )
+            except:
+                pass
+            await asyncio.sleep(20)
             try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                await client.change_presence(
-                    status=discord.Status.dnd, activity=discord.Game("〔█████[] 80%〕")
-                )
-            else:
-                await client.change_presence(
-                    status=discord.Status.idle, activity=discord.Game("DEACTIVATED")
-                )
-        except:
-            pass
-        await asyncio.sleep(20)
-        try:
-            try:
-                enabled = deactivatedata[0]["Option"]
-            except KeyError:
-                enabled = False
-            if not enabled:
-                await client.change_presence(
-                    status=discord.Status.dnd, activity=discord.Game("〔██████  100%〕")
-                )
-            else:
-                await client.change_presence(
-                    status=discord.Status.idle, activity=discord.Game("DEACTIVATED")
-                )
-        except:
-            pass
-        await asyncio.sleep(20)"""
+                try:
+                    enabled = deactivatedata[0]["Option"]
+                except KeyError:
+                    enabled = False
+                if not enabled:
+                    await client.change_presence(
+                        status=discord.Status.dnd, activity=discord.Game("〔██████  100%〕")
+                    )
+                else:
+                    await client.change_presence(
+                        status=discord.Status.idle, activity=discord.Game("DEACTIVATED")
+                    )
+            except:
+                pass
+            await asyncio.sleep(20)"""
 
 
 def first_allowed_channel(guild):
@@ -363,31 +394,28 @@ def first_allowed_channel(guild):
 # Присоеденился на сервер
 @client.event
 async def on_guild_join(guild):
-    lan = gdata("vega", "language")
-    if not str(guild.id) in lan:
-        if str(guild.region) == "russia":
-            lan[str(guild.id)] = True
+    if guild.id not in languagedata:
+        if guild.region == "russia":
+            language.add(guild.id, {"language": True})
         else:
-            lan[str(guild.id)] = False
+            language.add(guild.id, {"language": False})
     else:
         pass
-
     try:
-        enabled = lan[str(guild.id)]
+        enabled = languagedata[guild.id]["language"]
     except KeyError:
         enabled = False
     if not enabled:
-        lan[str(guild.id)] = False
+        language.add(guild.id, {"language": False})
     else:
         pass
-    wdata("vega", "language", lan)
 
     version_bot = open("important_information/version_bot.txt", "r").readline()
     try:
         prefix = "/"
         embed = discord.Embed(
             title=f"{get_language(guild.id,'👋 Привет, спасибо что добавили меня!')}",
-            description=f"{get_language(guild.id,'• Префикс на сервере')} `{prefix}`, {get_language(guild.id,'справка по командам')} `{prefix}help`.\n• {get_language(guild.id,'Сменить язык:')} `{prefix}{get_language(guild.id,'lang en')}`\n\n{get_language(guild.id,'**Описание:**')}\n{get_language(guild.id,'• Бот предназначен для защиты вашего сервера от других ботов! Защиты от self-ботов пока нет. Чтобы включить защиту, напишите команду')} `{prefix}antibot on` {get_language(guild.id,'(Данную команду может включить только Владелец сервера!).')}\n{get_language(guild.id,'Командой')} `{prefix}channel add {get_language(guild.id,'{#канал | ID канала}')}` {get_language(guild.id,'добавьте канал, в котором бот сможет отвечать на команды.')} {get_language(guild.id,'Советуем не убирать право Администратора у бота для корректной работы.')}\n{get_language(guild.id,'Для проверки ботов введите команду')} `{prefix}checkwl all`",
+            description=f"{get_language(guild.id,'• Префикс на сервере')} `{prefix}`, {get_language(guild.id,'справка по командам')} `{prefix}help`.\n• {get_language(guild.id,'Сменить язык:')} `{prefix}{get_language(guild.id,'lang en')}`\n\n{get_language(guild.id,'**Описание:**')}\n{get_language(guild.id,'• Бот предназначен для защиты вашего сервера от участников и ботов! Включить функцию **AntiBot**: `/antibot on`. Включить функцию **AntiCrash**: `/anticrash on`. (Включить) Запретить редактирование сервера: `/edit-server on`.')} {get_language(guild.id,'(Данные команды может включить только Владелец сервера!).')}\n{get_language(guild.id,'Командой')} `{prefix}channel add {get_language(guild.id,'{#канал | ID канала}')}` {get_language(guild.id,'добавьте канал, в котором бот сможет отвечать на команды.')} {get_language(guild.id,'Советуем не убирать право Администратора у бота для корректной работы.')}\n{get_language(guild.id,'Для проверки ботов введите команду')} `{prefix}checkwl all`",
             color=0xE21E1E
         )
         embed.add_field(
@@ -413,14 +441,15 @@ async def on_guild_join(guild):
         )
         embed.add_field(
             name=f"{get_language(guild.id,'🔗 Ссылки:')}",
-            value=f"{get_language(guild.id,'[Документация](https://never-see.gitbook.io/vega-bot/v/russian/)')}\n{get_language(guild.id,'[Сайт бота](https://vegabot.xyz/vegabot/)')}\n{get_language(guild.id,'[Служба поддержки](https://discord.gg/8YhmtsYvpK)')}",
+            value=f"{get_language(guild.id,'[Документация](https://never-see.gitbook.io/vega-bot/v/russian/)')}\n{get_language(guild.id,'[Сайт бота](https://vega-bot.ru/)')}\n{get_language(guild.id,'[Служба поддержки](https://discord.gg/8YhmtsYvpK)')}",
             inline=False
         )
         embed.set_thumbnail(
             url=client.get_user(795551166393876481).avatar.replace(size=1024)
         )
         embed.set_footer(
-            icon_url=client.get_user(351020816466575372).avatar.replace(size=1024),
+            icon_url=client.get_user(
+                351020816466575372).avatar.replace(size=1024),
             text=f"{client.get_user(351020816466575372)} {get_language(guild.id, '© 2021 - 2022 Все права защищены!')}"
         )
         await first_allowed_channel(guild).send(embed=embed)
@@ -450,26 +479,17 @@ async def on_guild_join(guild):
                     description=f"**Сервер:** {guild.name}\n**ID сервера:** {guild.id}\n**Количество участников:** {len(guild.members)}\n**Владелец:** {owner}\n**ID Владельца:** {owner.id}{invuser}",
                     color=discord.Colour.green()
                 )
-                embed.set_thumbnail(url=guild.icon)
+                if guild.icon != None:
+                    embed.set_thumbnail(url=guild.icon)
                 await client.get_channel(811963689677619230).send(embed=embed)
         except:
             pass
     else:
         pass
 
-    w = gdata("vega", "wlbots")
-    wl = gdata("vega", "ignorebots")
+    
     ig = []
     prefix = "/"
-    try:
-        enabled = False
-        if str(guild.id) in wl:
-            dop = wl[str(guild.id)]
-        else:
-            dop = ""
-    except KeyError:
-        print("!!! [ ОШИБКА ] Произошла неизвестная ошибка!")
-        pass
     embed = discord.Embed(
         description=f"{get_language(guild.id,'<a:b_loading:857131960223662104> Пожалуйста подождите, выполняется проверка ботов...')}",
         color=0xF4900C
@@ -478,7 +498,7 @@ async def on_guild_join(guild):
     new = await first_allowed_channel(guild).fetch_message(msg.id)
     for member in [m for m in guild.members if m.bot]:
         # try:
-        if not str(member.id) in w[str("Bots")] and not str(member.id) in dop:
+        if member.id not in wlbotsdata[0]["Bots"] and member.id not in ignorebotsdata[guild.id]["rights"]:
             ig.append(member.mention)
 
     bot1 = len([m for m in guild.members if m.bot])
@@ -505,9 +525,8 @@ async def on_guild_join(guild):
                     inline=False
                 )
             else:
-                data = gdata("vega", "antibot")
                 try:
-                    enabled = data[str(member.guild.id)]
+                    enabled = antibotdata[guild.id]["enabled"]
                 except KeyError:
                     enabled = False
                 if member.bot:
@@ -544,7 +563,7 @@ class links(disnake.ui.View):
         url1 = f"{get_language(ctx.guild.id,'https://never-see.gitbook.io/vega-bot/v/russian/')}"
         self.add_item(disnake.ui.Button(label=f"{get_language(ctx.guild.id,'📚 Документация')}", url=url1))
 
-        url2 = "https://vegabot.xyz/vegabot"
+        url2 = "https://vega-bot.ru/"
         self.add_item(disnake.ui.Button(label=f"{get_language(ctx.guild.id,'🌐 Сайт')}", url=url2))
 
 class menuhelp(disnake.ui.Select):
@@ -586,2806 +605,27 @@ class menuhelpview(disnake.ui.View):
 """
 
 
-class Info(int, Enum):
-    ping = 1
-    info = 2
-    stats = 3
-    server = 4
-    user = 5
-    links = 6
-    wlbots = 7
-
-
-class Owner(int, Enum):
-    reset = 1
-    rgive = 2
-    rselect = 3
-    antibot = 4
-    antiinvite = 5
-    ignore = 6
-    pаss = 7
-    delchannels = 8
-    delroles = 9
-
-
-class Admin(int, Enum):
-    log = 1
-    language = 2
-    channel = 3
-    rmute = 4
-    settings = 5
-    list = 6
-    echo = 7
-    emb = 8
-    slowmode = 9
-
-
-class Moder(int, Enum):
-    checkwl = 1
-    ban = 2
-    unban = 3
-    kick = 4
-    clear = 5
-    uclear = 6
-    rolen = 7
-    mute = 8
-    unmute = 9
-
-
-class Fun(int, Enum):
-    eightball = 1
-    avatar = 2
-    emoji = 3
-    random = 4
-    math = 5
-
-
-# @commands.guild_permissions(826022179568615445, user_ids={351020816466575372: True})
-# @commands.bot_has_permissions(send_messages=True)
-# @commands.cooldown(1, 5, commands.BucketType.member)
-@client.slash_command(
-    name="help",
-    description="Help about commands (Select the group and command) | Справка о командах (Укажите группу и команду)",
-)
-@commands.guild_only()
-@commands.bot_has_permissions(send_messages=True, embed_links=True)
-async def help(
-    ctx,
-    info: Info = commands.Param(
-        description="Select the group and command | Укажите группу и команду"
-    )
-    == None,
-    owner: Owner = commands.Param(
-        description="Select the group and command | Укажите группу и команду"
-    )
-    == None,
-    admin: Admin = commands.Param(
-        description="Select the group and command | Укажите группу и команду"
-    )
-    == None,
-    moder: Moder = commands.Param(
-        description="Select the group and command | Укажите группу и команду"
-    )
-    == None,
-    fun: Fun = commands.Param(
-        description="Select the group and command | Укажите группу и команду"
-    )
-    == None,
-):
-    try:
-        enabled = deactivatedata[0]["Option"]
-    except KeyError:
-        enabled = False
-    if enabled:
-        pass
-    else:
-        if await checkchannel(ctx):
-            # row_i = ActionRow(Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))
-            timestamp = datetime.datetime.now()
-            on = "{on}"
-            off = "{off}"
-            add = "{add}"
-            remove = "{remove}"
-            эмодзи = "{эмодзи}"
-            число = "{число}"
-            текст = "{текст}"
-            символы = "{символы}"
-            пример = "{пример}"
-            причина = "{причина}"
-            a = "{a}"
-            b = "{b}"
-            название_роли = "{название роли}"
-            роль = "{@роль}"
-            роли = "{ID роли}"
-            бота = "{ID бота}"
-            всем = "{all}"
-            пользователь = "{@пользователь}"
-            пользователя = "{ID пользователя}"
-            канал = "{#канал}"
-            канала = "{ID канала}"
-            channels = "{channels}"
-            ignores = "{ignores}"
-            каналов = "{каналов}"
-            игнора = "{игнора}"
-            название_канала = "{название канала}"
-            обязательный_параметр = "{**_обязательный параметр_**}"
-            wl = "{wl}"
-            бс = "{бс}"
-            все = "{all}"
-            преф = "{prefix}"
-            оканалы = "{channels}"
-            игноры = "{ignores}"
-            пвмьюте = "{muteusers}"
-            пропуск = "{pass}"
-            # ru = '{ru}'
-            # en = '{en}'
-            if info:
-                if info == 1:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} ping",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотрите пинг бота и количество шардов.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}ping`",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif info == 2:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} info",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Вы можете прочитать информацию о боте VEGA ⦡#7724.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}info`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}info`\n╰ {get_language(ctx.guild.id,'Покажет информацию о боте VEGA ⦡#7724.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif info == 3:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} stats",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотреть статистику бота VEGA ⦡#7724.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}stats`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}stats`\n╰ {get_language(ctx.guild.id,'Покажет статистику бота VEGA ⦡#7724.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif info == 4:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} server",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотреть информацию о сервере. Количество ролей, каналов, пользователей и т.д.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}server`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}serverinfo`\n`{prefix}server-info`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}server`\n╰ {get_language(ctx.guild.id,'Покажет информацию о сервере.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif info == 5:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} userinfo",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотреть информацию о себе или пользователе.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}userinfo {get_language(ctx.guild.id,'[@пользователь]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'[@пользователь]')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'[ID пользователя]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}userinfo`\n╰ {get_language(ctx.guild.id,'Покажет информацию о вас.')}\n\n`{prefix}userinfo {get_language(ctx.guild.id,'[@пользователь]')}`\n╰ {get_language(ctx.guild.id,'Покажет информацию о пользователе.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif info == 6:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} links",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Бот отправит вам в лс ссылку сервера поддержки и документацию.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}links`",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif info == 7:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} wlbots",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотреть или скачать белый список ботов.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}wlbots`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}wlbots`\n╰ {get_language(ctx.guild.id,'Бот отправит вам белый список.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-            elif owner:
-                if owner == 1:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} reset",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Команда предназначена для сброса настроек бота.')}\n{get_language(ctx.guild.id,'`prefix` — сброс префикса')}\n{get_language(ctx.guild.id,'`channels` — сброс игнорируемых каналов')}\n{get_language(ctx.guild.id,'`ignores` — сброс игнорируемых ботов')}\n{get_language(ctx.guild.id,'`muteusers` — сброс замьюченных пользователей')}\n{get_language(ctx.guild.id,'`pass` — сброс пропусков')}\n{get_language(ctx.guild.id,'`all` — сброс всех настроек бота')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}pass {все}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{преф}`; `{оканалы}`; `{игноры}`; `{пвмьюте}`; `{пропуск}`; `{все}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}reset all`\n╰ {get_language(ctx.guild.id,'Сбросит все настройки бота.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 2:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} rgive",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Выдать всем пользователям роль. Указанная вами роль не будет выдаваться ботам!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}rgive {get_language(ctx.guild.id,'{all}')} {get_language(ctx.guild.id,'{@роль}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{all}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}rgive all {get_language(ctx.guild.id,'@роль')}`\n╰ {get_language(ctx.guild.id,'Выдать всем роль.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 3:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} rselect",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Забрать у всех пользователей на сервере указанную роль.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}rselect {get_language(ctx.guild.id,'{all}')} {get_language(ctx.guild.id,'{@роль}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{all}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}rselect all {get_language(ctx.guild.id,'@роль')}`\n╰ {get_language(ctx.guild.id,'Забрать у всех роль.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 4:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} antibot",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Включите или отключите антибот. VEGA ⦡#7724 будет выгонять неизвестных ботов и пропускать ботов из белого списка.')}\n\
-                        {get_language(ctx.guild.id,'[Открыть белый список](https://never-see.gitbook.io/vega-bot/v/russian/various/whitelist-of-bots)')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}antibot {get_language(ctx.guild.id,'{on}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{on}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{off}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}antibot on`\n╰ {get_language(ctx.guild.id,'Антибот включится.')}\n\n`{prefix}antibot off`\n╰ {get_language(ctx.guild.id,'Антибот отключится.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 5:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} antiinvite",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Включите или отключите анти приглашения. Работает на всех каналах, команду ограничить нельзя!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}antiinvite {get_language(ctx.guild.id,'{on}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{on}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{off}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}ai`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}antiinvite on`\n╰ {get_language(ctx.guild.id,'Анти приглашения включится.')}\n\n`{prefix}antiinvite off`\n╰ {get_language(ctx.guild.id,'Анти приглашения отключится.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 6:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} ignore",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Укажите бота. VEGA ⦡ (не) будет игнорировать действия указанных ботов.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}ignore {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{ID бота}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID бота}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}ignore add 795551166393876481`\n╰ {get_language(ctx.guild.id,'VEGA ⦡#7724 будет игнорировать бота.')}\n\n`{prefix}ignore remove 795551166393876481`\n╰ {get_language(ctx.guild.id,'VEGA ⦡#7724 перестанет игнорировать бота.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 7:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} pass",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Выдайте или заберите пропуск у бота. Пропуск можно выдавать только тем ботам, которые не занесены в игнорируемый и белый список. Команда работает только с включенной функцией **AntiBot**!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}pass {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{ID пользователя}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{ID пользователя}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}pass add {get_language(ctx.guild.id,'ID пользователя')}`\n╰ {get_language(ctx.guild.id,'Выдаст пропуск боту.')}\n\n`{prefix}rmute remove {get_language(ctx.guild.id,'ID пользователя')}`\n╰ {get_language(ctx.guild.id,'Заберет пропуск у бота.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 8:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} delchannels",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Бот начнет удалять каналы и | или категории с одинаковым названием.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}delchannels {get_language(ctx.guild.id,'{название канала}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{название канала}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}delchannels {get_language(ctx.guild.id,'Тест')}`\n╰ {get_language(ctx.guild.id,'Удалит одинаковые каналы и | или категории.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif owner == 9:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} delroles",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Бот начнет удалять роли с одинаковым названием.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Владелец')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}delroles {get_language(ctx.guild.id,'{@роль}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{название роли}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}delroles {get_language(ctx.guild.id,'@роль')}`\n╰ {get_language(ctx.guild.id,'Удалит одинаковые роли.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-            elif admin:
-                if admin == 1:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} log",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора могут указать канал логов для бота!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}log {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{#канал}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{#канал}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID канала}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}log add 824916166400802902`\n╰ {get_language(ctx.guild.id,'Назначит канал логов боту.')}\n\n`{prefix}log remove`\n╰ {get_language(ctx.guild.id,'Удалит канал логов из списка.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 2:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} language",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора могут сменить язык боту!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}language en`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`en` {get_language(ctx.guild.id,'или')} `ru`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}language en`\n╰ {get_language(ctx.guild.id,'Установиться английский язык.')}\n\n`{prefix}language ru`\n╰ {get_language(ctx.guild.id,'Установиться русский язык.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 3:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} channel",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Ограничте бота VEGA ⦡#7724 по каналам. Изначально бот будет отвечать на команды во всех каналах, но если ему указать канал, то он будет отвечать на команды только в указанном канале.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}channel {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{#канал}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{add}` {get_language(ctx.guild.id,'или')} `{remove}` {get_language(ctx.guild.id,'и')} `{канал}` {get_language(ctx.guild.id,'или')} `{канала}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}channel add {get_language(ctx.guild.id,'#канал')}`\n╰ {get_language(ctx.guild.id,'Добавить канал в список.')}\n\n`{prefix}channel remove {get_language(ctx.guild.id,'#канал')}`\n╰ {get_language(ctx.guild.id,'Удалить канал из списка.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 4:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} rmute",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора могут указать роль мьюта для бота!')}\n\
-                        {get_language(ctx.guild.id,'Если роль мьюта была удалена, ты вы можете указать ее заново.')}\n{get_language(ctx.guild.id,'Роль мьюта не будет настраиваться ботом!')} {get_language(ctx.guild.id,'Вы сами должны настроить роль мьюта!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}rmute {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{@роль}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}rmute add @Muted`\n╰ {get_language(ctx.guild.id,'Назначит роль мьюта боту.')}\n\n`{prefix}rmute remove @Muted`\n╰ {get_language(ctx.guild.id,'Удалит роль мьюта из списка.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 5:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} settings",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Вы можете посмотреть все настройки бота.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}settings`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}stg`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}settings`\n╰ {get_language(ctx.guild.id,'Посмотреть настройки.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 6:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} list",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотреть список ограниченных каналов, игнорируемых ботов, пропусков или количество ботов в белом списке.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}list {get_language(ctx.guild.id,'{channels}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{channels}')}`; `{get_language(ctx.guild.id,'{ignores}')}`; `{get_language(ctx.guild.id,'{pass}')}`; `{get_language(ctx.guild.id,'{wl}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}list channels`\n╰ {get_language(ctx.guild.id,'Список ограниченных каналов.')}\n\n`{prefix}list ignores`\n╰ {get_language(ctx.guild.id,'Список игнорируемых ботов.')}\n\n`{prefix}list pass`\n╰ {get_language(ctx.guild.id,'Боты, у которых есть пропуска на сервер.')}\n\n`{prefix}list wl`\n╰ {get_language(ctx.guild.id,'Белый список ботов.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 7:
-                    # текст = '{текст}'
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} echo",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Только Администраторы могут писать от лица бота.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}echo {get_language(ctx.guild.id,'{текст}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{текст}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}echo` {get_language(ctx.guild.id,'Это тестовое сообщение!')}\n╰ {get_language(ctx.guild.id,'Отправит сообщение от лица бота.')}",
-                        inline=False,
-                    )
-                    embed.set_image(
-                        url=f"{get_language(ctx.guild.id,'https://media.discordapp.net/attachments/713751423128698950/859417527594254346/messages_from_VEGA__line_RU.png')}"
-                    )
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 8:
-                    # текст = '{текст}'
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} emb",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Только Администраторы могут писать эмбед от лица бота.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}emb {get_language(ctx.guild.id,'{текст}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{текст}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}emb` {get_language(ctx.guild.id,'Это тестовое сообщение!')}\n╰ {get_language(ctx.guild.id,'Отправит сообщение эмбедом от лица бота.')}",
-                        inline=False,
-                    )
-                    embed.set_image(
-                        url=f"{get_language(ctx.guild.id,'https://media.discordapp.net/attachments/713751423128698950/859417490324455444/emb_messages_from_VEGA__line_RU.png')}"
-                    )
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif admin == 9:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} slowmode",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Установите медленный режим в канале. Максимальное число в секундах 31600, минимальное 1. Число 0 сбросит медленный режим в канале.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}slowmode {get_language(ctx.guild.id,'{число}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{число}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}slowmode 2`\n╰ {get_language(ctx.guild.id,'Бот установит медленный режим в канале.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-            elif moder:
-                if moder == 1:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} checkwl",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора или Управления сервером, могут проверить наличие одного или всех ботов из сервера в белом списке!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Администратор')}\n{get_language(ctx.guild.id,'Управлять сервером')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}checkwl {get_language(ctx.guild.id,'{ID бота}')}` {get_language(ctx.guild.id,'или')} `{prefix}checkwl {get_language(ctx.guild.id,'{all}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID бота}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{all}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}checkwl 767994849600602143`\n╰ {get_language(ctx.guild.id,'Проверка бота в белом списке.')}\n\n`{prefix}checkwl all`\n╰ {get_language(ctx.guild.id,'Проверка ботов на сервере в списках.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 2:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} ban",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Забаньте нарушителя. Причина необязательна!')}\n{get_language(ctx.guild.id,'Бот забанит пользователя и удалит последние сообщения.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Банить пользователей')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}ban {get_language(ctx.guild.id,'{@пользователь}')} {get_language(ctx.guild.id,'[причина]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'[причина]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}ban {get_language(ctx.guild.id,'@пользователь')} {get_language(ctx.guild.id,'Спам приглашениями.')}`\n╰ {get_language(ctx.guild.id,'Бот забанит нарушителя.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 3:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} unban",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Разбаньте нарушителя.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Банить пользователей')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}unban {get_language(ctx.guild.id,'{@пользователь}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}unban {get_language(ctx.guild.id,'@пользователь')}`\n╰ {get_language(ctx.guild.id,'Бот разбанит нарушителя.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 4:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} kick",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Кикните нарушителя. Причина необязательна!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Кикать пользователей')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}kick {get_language(ctx.guild.id,'{@пользователь}')} {get_language(ctx.guild.id,'[причина]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'[причина]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}kick {get_language(ctx.guild.id,'@пользователь')} {get_language(ctx.guild.id,'Спам приглашениями.')}`\n╰ {get_language(ctx.guild.id,'Бот выгонит нарушителя из сервера.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 5:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} clear",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Очистите чат и сообщения пользователей на вашем сервере. Минимальное количество очистки сообщений 1, а максимальное 200.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}clear {get_language(ctx.guild.id,'[@пользователь]')} {get_language(ctx.guild.id,'{число}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'[@пользователь]')}` {get_language(ctx.guild.id,'и')} | {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{число}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}purge`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}clear 12`\n╰ {get_language(ctx.guild.id,'Бот очистит сообщения в чате.')}\n\n`{prefix}clear {get_language(ctx.guild.id,'@пользователь')} 12`\n╰ {get_language(ctx.guild.id,'Бот очистит сообщения пользователя в чате.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 6:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} uclear",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Очистите сообщения пользователя. Бот очистит сообщения написанные пользователем за последнюю неделю.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}uclear {get_language(ctx.guild.id,'{@пользователь}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}uclear {get_language(ctx.guild.id,'@пользователь')}`\n╰ {get_language(ctx.guild.id,'Бот очистит последние сообщения пользоватея.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 7:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} rolen",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотреть количество пользователей с данной ролью.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Управлять ролями')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}rolen {get_language(ctx.guild.id,'{@роль}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}rolen {роль}`\n╰ {get_language(ctx.guild.id,'Покажет количество пользователей с ролью.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 8:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} mute",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Замьютьте нарушителя. Причина не обязательна.')}\n{get_language(ctx.guild.id,'Роль мьюта не будет настраиваться ботом!')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Журнал аудита')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}mute {get_language(ctx.guild.id,'{@пользователь}')} {get_language(ctx.guild.id,'[причина]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'[причина]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}mute {get_language(ctx.guild.id,'@пользователь')} {get_language(ctx.guild.id,'Спам сообщениями.')}`\n╰ {get_language(ctx.guild.id,'Бот выдаст нарушителю роль мьюта.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif moder == 9:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} unmute",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Забрать у нарушителя роль мьюта.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Право у пользователя:')}",
-                        value=f"{get_language(ctx.guild.id,'Журнал аудита')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}unmute {get_language(ctx.guild.id,'{@пользователь}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}unmute {get_language(ctx.guild.id,'@пользователь')}`\n╰ {get_language(ctx.guild.id,'Бот заберет у нарушителя роль мьюта.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-            elif fun:
-                if fun == 1:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} 8ball",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Задайте вопрос шару и узнайте правду.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}8ball {get_language(ctx.guild.id,'{текст}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{текст}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}8ball {get_language(ctx.guild.id,'Завтра будет ясная погода?')}`\n╰ {get_language(ctx.guild.id,'Бот ответит на ваш вопрос.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif fun == 2:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} avatar",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Посмотрите и скачайте аватар пользователя.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}avatar {get_language(ctx.guild.id,'[@пользователь]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'[@пользователь]')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'[ID пользователя]')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}ava`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}avatar`\n╰ {get_language(ctx.guild.id,'Покажет ваш аватар.')}\n\n`{prefix}avatar {get_language(ctx.guild.id,'[@пользователь]')}`\n╰ {get_language(ctx.guild.id,'Покажет аватар пользователя.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif fun == 3:
-                    # эмодзи = '{эмодзи}'
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} emoji",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Вы можете осмотреть и скачать эмодзи.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}emoji {get_language(ctx.guild.id,'{эмодзи}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{эмодзи}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"{prefix}emoji <:python:826158844555427891>\n╰ {get_language(ctx.guild.id,'Посмотреть эмодзи.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif fun == 4:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} random",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Если хотите выбрать случайное число, то воспользуйтесь данной командой.')}",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}random {a} {b}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{a}` {get_language(ctx.guild.id,'и')} `{b}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}r`\n`{prefix}rand`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}random 5 10`\n╰ {get_language(ctx.guild.id,'Бот выберет рандомное число.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-                elif fun == 5:
-                    embed = discord.Embed(
-                        title=f"{get_language(ctx.guild.id,'❓ Команда:')} math",
-                        description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}",
-                        color=0xD81911,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Описание:')}",
-                        value=f"{get_language(ctx.guild.id,'Калькулятор для решения простых примеров.')}\n{get_language(ctx.guild.id,'Используются знаки')} `() + - / *`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Использование:')}",
-                        value=f"`{prefix}math {get_language(ctx.guild.id,'{пример}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Аргументы:')}",
-                        value=f"`{get_language(ctx.guild.id,'{пример}')}`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Подобные:')}",
-                        value=f"`{prefix}calculate`\n`{prefix}calc`",
-                        inline=False,
-                    )
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Примеры:')}",
-                        value=f"`{prefix}math 5*5`\n╰ {get_language(ctx.guild.id,'Бот решит пример за вас.')}",
-                        inline=False,
-                    )
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_author(
-                        name=f"vegabot.xyz/vegabot",
-                        url="https://vegabot.xyz/vegabot/",
-                        icon_url=client.get_user(795551166393876481).avatar.replace(
-                            size=1024, format="png"
-                        ),
-                    )
-                    embed.set_footer(
-                        icon_url=client.get_user(351020816466575372).avatar.replace(
-                            size=1024
-                        ),
-                        text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                    )
-                    await ctx.send(embed=embed, ephemeral=True)
-            else:
-                embed = discord.Embed(
-                    title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}",
-                    description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{prefix}help Info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{prefix}help Owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{prefix}help Admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{prefix}help Moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{prefix}help Fun` — {get_language(ctx.guild.id, 'команды веселья')}.",
-                    color=0xE21E1E,
-                )
-                embed.set_author(
-                    name=f"vegabot.xyz/vegabot",
-                    url="https://vegabot.xyz/vegabot/",
-                    icon_url=client.get_user(795551166393876481).avatar.replace(
-                        size=1024, format="png"
-                    ),
-                )
-                embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                embed.set_footer(
-                    icon_url=client.get_user(351020816466575372).avatar.replace(
-                        size=1024
-                    ),
-                    text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}",
-                )
-                await ctx.send(embed=embed, ephemeral=True)
-        else:
-            embed = discord.Embed(
-                description=f"{get_language(ctx.guild.id,':warning: Эта команда доступна только в определенных каналах!')}",
-                color=0xFCC21B,
-            )
-            await ctx.send(embed=embed, ephemeral=True)
-
-
-"""            
-            elif option.lower() in ["help"]:
-                embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} help", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                    {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Показывает справку о всех командах.')}", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}help {get_language(ctx.guild.id,'[команда]')}`", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}h`', inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}help`\n╰ {get_language(ctx.guild.id,'Список всех команд.')}\n\n\
-                    `{prefix}help [emoji]`\n╰ {get_language(ctx.guild.id,'Информация о команде.')}", inline=False)
-                embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                await inter.reply(embed=embed, components=[row_i])
-            elif option.lower() in ["language"]:
-                embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} language", color=0xd81911)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Установите язык для бота на вашем сервере.')}", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}language {get_language(ctx.guild.id,'{ru}')}`", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{ru}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{en}')}`", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}lang`', inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}language ru`\n╰ {get_language(ctx.guild.id,'Установить русский язык для бота.')}\n\n`{prefix}language en`\n╰ {get_language(ctx.guild.id,'Установить английский язык для бота.')}", inline=False)
-                embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                await inter.reply(embed=embed, components=[row_i])
-            elif option.lower() in ["antimsg"]:
-                embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} antimsg", color=0xd81911)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Включите или отключите автоматическое удаление сообщений оффлайн ботов. VEGA ⦡#7724 будет удалять сообщения неизвестных ботов, которые находятся не в сети.')}", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}antimsg {get_language(ctx.guild.id,'{on}')}`", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{on}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{off}')}`", inline=False)
-                embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}antimsg on`\n╰ {get_language(ctx.guild.id,'Антисообщения включатся.')}\n\n`{prefix}antimsg off`\n╰ {get_language(ctx.guild.id,'Антисообщения отключатся.')}", inline=False)
-                embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                await inter.reply(embed=embed, components=[row_i])
-"""
-
-"""
-                elif option.lower() in ["*info"]:
-                    embed = discord.Embed(title=f"{get_language(ctx.guild.id, '❓ Группа: Информация')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{prefix}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{prefix}ping` — {get_language(ctx.guild.id, 'пинг бота и состояние шардов.')}\n`{prefix}info` — {get_language(ctx.guild.id,'информация о боте.')}\n`{prefix}stats` — {get_language(ctx.guild.id,'статистика бота.')}\n`{prefix}server` — {get_language(ctx.guild.id,'информация о сервере.')}\n`{prefix}links` — {get_language(ctx.guild.id,'полезные ссылки.')}\n`{prefix}wlbots` — {get_language(ctx.guild.id,'белый список ботов.')}", inline=False)
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                    await inter.reply(embed=embed, components=[row_i])
-                elif option.lower() in ["*fun"]:
-                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Веселье')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{prefix}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{prefix}8ball` — {get_language(ctx.guild.id,'задать вопрос шару.')}\n`{prefix}avatar` — {get_language(ctx.guild.id,'посмотреть аватар пользователя.')}\n`{prefix}emoji` — {get_language(ctx.guild.id,'посмотреть эмодзи.')}\n`{prefix}random` — {get_language(ctx.guild.id,'рандомное число, от и до.')}\n`{prefix}math` — {get_language(ctx.guild.id,'обычный калькулятор.')}", inline=False)
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                    await inter.reply(embed=embed, components=[row_i])
-                elif option.lower() in ["*owner"]:
-                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Владельца')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{prefix}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{prefix}reset` — {get_language(ctx.guild.id,'сброс настроек бота.')}\n`{prefix}rgive` — {get_language(ctx.guild.id,'выдать всем роль.')}\n`{prefix}rselect` — {get_language(ctx.guild.id,'забрать у всех роль.')}\n`{prefix}antibot` — {get_language(ctx.guild.id,'функция Антибот.')}\n`{prefix}antiinvite` — {get_language(ctx.guild.id,'функция Анти приглашения.')}\n`{prefix}ignore` — {get_language(ctx.guild.id,'игнорировать ботов.')}\n`{prefix}pass` — {get_language(ctx.guild.id,'пропуск для бота.')}\n`{prefix}delchannels` — {get_language(ctx.guild.id,'удалить спам каналы | категории.')}\n`{prefix}delroles` — {get_language(ctx.guild.id,'удалить спам роли.')}", inline=False)
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                    await inter.reply(embed=embed, components=[row_i])
-                elif option.lower() in ["*admin"]:
-                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Администратора')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{prefix}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{prefix}prefix` — {get_language(ctx.guild.id,'сменить префикс боту.')}\n`{prefix}log` — {get_language(ctx.guild.id,'указать канал логов.')}\n`{prefix}channel` — {get_language(ctx.guild.id,'ограничить команды бота по каналам.')}\n`{prefix}rmute` — {get_language(ctx.guild.id,'указать роль Мьюта.')}\n`{prefix}settings` — {get_language(ctx.guild.id,'настройки бота.')}\n`{prefix}list` — {get_language(ctx.guild.id,'существующие списки.')}\n`{prefix}echo` — {get_language(ctx.guild.id,'текст от лица бота.')}\n`{prefix}emb` — {get_language(ctx.guild.id,'текст в панели от лица бота.')}\n`{prefix}slowmode` — {get_language(ctx.guild.id,'установить медленный режим в канале.')}", inline=False)
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                    await inter.reply(embed=embed, components=[row_i])
-                elif option.lower() in ["*moder"]:
-                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Модератора')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{prefix}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{prefix}checkwl` — {get_language(ctx.guild.id,'проверить бота в белом списке.')}\n`{prefix}ban` — {get_language(ctx.guild.id,'забанить пользователя.')}\n`{prefix}unban` — {get_language(ctx.guild.id,'разбанить пользователя.')}\n`{prefix}kick` — {get_language(ctx.guild.id,'кикнуть пользователя.')}\n`{prefix}clear` — {get_language(ctx.guild.id,'очистить чат.')}\n`{prefix}uclear` — {get_language(ctx.guild.id,'очистить сообщения указанного пользователя.')}\n`{prefix}rolen` — {get_language(ctx.guild.id,'посмотреть кол-во пользователей с ролью.')}\n`{prefix}user` — {get_language(ctx.guild.id,'информация о пользователе.')}\n`{prefix}mute` — {get_language(ctx.guild.id,'замьютить пользователя.')}\n`{prefix}unmute` — {get_language(ctx.guild.id,'размьютить пользователя.')}", inline=False)
-                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                    await inter.reply(embed=embed, components=[row_i])
-                else:
-                    ctx.command.reset_cooldown(ctx)
-            else:"""
-
-"""
-            global HELP_MENUS
-            # Достаём последнее хелп сообщение пользователя
-            last_msg = HELP_MENUS.get(ctx.author.id)
-            if last_msg is not None:
-                # Удаляем его кнопки
-                try:
-                    await last_msg.edit_original_message(view=None)
-                except:
-                    pass
-
-            pre = prefix
-            embed = discord.Embed(title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}", description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{pre}help *info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{pre}help *owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{pre}help *admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{pre}help *moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{pre}help *fun` — {get_language(ctx.guild.id, 'команды веселья')}.", color=0xe21e1e)
-            embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-            embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-"""
-
-"""         row = ActionRow(Button(style=ButtonStyle.blurple, emoji="<:info:860380081268588545>", custom_id = '❓'), Button(style=ButtonStyle.blurple, emoji="<:owner:860380081594564688>", custom_id = '👑'),
-                Button(style=ButtonStyle.blurple, emoji="<:admin:860380081536761886>", custom_id = '⚙️'), Button(style=ButtonStyle.blurple, emoji="<:moder:860380081627856906>", custom_id = '🛠'), Button(style=ButtonStyle.blurple, emoji="<:fun:860380081637031936>", custom_id = '🎉'))
-
-            back = ActionRow(Button(style=ButtonStyle.blurple, label=f"{get_language(ctx.guild.id, 'Назад')}", custom_id = 'Назад'), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))
-            back1 = ActionRow(Button(style=ButtonStyle.blurple, label=f"{get_language(ctx.guild.id, 'Назад')}", custom_id = 'Назад1'), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))                
-            back2 = ActionRow(Button(style=ButtonStyle.blurple, label=f"{get_language(ctx.guild.id, 'Назад')}", custom_id = 'Назад2'), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))                
-            back3 = ActionRow(Button(style=ButtonStyle.blurple, label=f"{get_language(ctx.guild.id, 'Назад')}", custom_id = 'Назад3'), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))                
-            back4 = ActionRow(Button(style=ButtonStyle.blurple, label=f"{get_language(ctx.guild.id, 'Назад')}", custom_id = 'Назад4'), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))                
-            back5 = ActionRow(Button(style=ButtonStyle.blurple, label=f"{get_language(ctx.guild.id, 'Назад')}", custom_id = 'Назад5'), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '📚 Документация')}", url="https://never-see.gitbook.io/vega-bot/v/russian/"), Button(style=ButtonStyle.link, label=f"{get_language(ctx.guild.id, '🌐 Сайт')}", url="https://vegabot.xyz/vegabot"))                
-"""
-
-# msg = await ctx.message.reply(embed=embed, components=[row, row_1])
-# Запоминаешь сообщение чтобы если чё удалить кнопки в нём
-# HELP_MENUS[ctx.author.id] = msg
-
-"""         helpmenuinfo = SelectMenu(custom_id="menuhelpi", placeholder=f"{get_language(ctx.guild.id, 'Информация о команде')}", max_values=1, options=[
-                SelectOption(label=f"{prefix}ping", value="info1"),
-                SelectOption(label=f"{prefix}info", value="info2"),
-                SelectOption(label=f"{prefix}stats", value="info3"),
-                SelectOption(label=f"{prefix}server", value="info4"),
-                SelectOption(label=f"{prefix}links", value="info5"),
-                SelectOption(label=f"{prefix}wlbots", value="info6")
-                ])
-            helpmenuowner = SelectMenu(custom_id="menuhelpo", placeholder=f"{get_language(ctx.guild.id, 'Информация о команде')}", max_values=1, options=[
-                SelectOption(label=f"{prefix}reset", value="owner1"),
-                SelectOption(label=f"{prefix}rgive", value="owner2"),
-                SelectOption(label=f"{prefix}rselect", value="owner3"),
-                SelectOption(label=f"{prefix}antibot", value="owner4"),
-                SelectOption(label=f"{prefix}antimsg", value="owner10"),
-                SelectOption(label=f"{prefix}antiinvite", value="owner5"),
-                SelectOption(label=f"{prefix}ignore", value="owner6"),
-                SelectOption(label=f"{prefix}pass", value="owner7"),
-                SelectOption(label=f"{prefix}delchannels", value="owner8"),
-                SelectOption(label=f"{prefix}delroles", value="owner9")
-                ])
-            helpmenuadmin = SelectMenu(custom_id="menuhelpa", placeholder=f"{get_language(ctx.guild.id, 'Информация о команде')}", max_values=1, options=[
-                SelectOption(label=f"{prefix}log", value="admin2"),
-                SelectOption(label=f"{prefix}channel", value="admin3"),
-                SelectOption(label=f"{prefix}rmute", value="admin4"),
-                SelectOption(label=f"{prefix}settings", value="admin5"),
-                SelectOption(label=f"{prefix}list", value="admin6"),
-                SelectOption(label=f"{prefix}echo", value="admin7"),
-                SelectOption(label=f"{prefix}emb", value="admin8"),
-                SelectOption(label=f"{prefix}slowmode", value="admin9")
-                ])
-            helpmenumoder = SelectMenu(custom_id="menuhelpm", placeholder=f"{get_language(ctx.guild.id, 'Информация о команде')}", max_values=1, options=[
-                SelectOption(label=f"{prefix}checkwl", value="moder1"),
-                SelectOption(label=f"{prefix}ban", value="moder2"),
-                SelectOption(label=f"{prefix}unban", value="moder3"),
-                SelectOption(label=f"{prefix}kick", value="moder4"),
-                SelectOption(label=f"{prefix}clear", value="moder5"),
-                SelectOption(label=f"{prefix}uclear", value="moder6"),
-                SelectOption(label=f"{prefix}rolen", value="moder7"),
-                SelectOption(label=f"{prefix}user", value="moder8"),
-                SelectOption(label=f"{prefix}mute", value="moder9"),
-                SelectOption(label=f"{prefix}unmute", value="moder10")
-                ])
-            helpmenufun = SelectMenu(custom_id="menuhelpf", placeholder=f"{get_language(ctx.guild.id, 'Информация о команде')}", max_values=1, options=[
-                SelectOption(label=f"{prefix}8ball", value="fun1"),
-                SelectOption(label=f"{prefix}avatar", value="fun2"),
-                SelectOption(label=f"{prefix}emoji", value="fun3"),
-                SelectOption(label=f"{prefix}random", value="fun4"),
-                SelectOption(label=f"{prefix}math", value="fun5")
-                ])
-"""
-"""
-            menuhelp_view = menuhelpview(timeout=60)
-            msg = await ctx.send(embed=embed, view=[menuhelp_view, links])
-            await menuhelp_view.wait()
-            try:await ctx.edit_original_message(view=links)
-            except:pass
-
-            # Запоминаешь сообщение чтобы если чё удалить кнопки в нём
-            HELP_MENUS[ctx.author.id] = msg
-
-            while True:            
-                helpvalue = intermenu.select_menu.selected_options[0].value
-
-                # Если тыкнул не тот чел, скажи ему об этом
-                if intermenu.author != ctx.author:
-                    await intermenu.reply(f"{get_language(ctx.guild.id, 'Этим меню управляете не вы!')}", ephemeral=True)
-                else:
-                    on = '{on}'
-                    off = '{off}'
-                    add ='{add}'
-                    remove = '{remove}'
-                    эмодзи = '{эмодзи}'
-                    число = '{число}'
-                    текст = '{текст}'
-                    символы = '{символы}'
-                    пример = '{пример}'
-                    причина = '{причина}'
-                    a = '{a}'
-                    b = '{b}'
-                    название_роли = '{название роли}'
-                    роль = '{@роль}'
-                    роли = '{ID роли}'
-                    бота = '{ID бота}'
-                    всем = '{all}'
-                    пользователь = '{@пользователь}'
-                    пользователя = '{ID пользователя}'
-                    канал = '{#канал}'
-                    канала = '{ID канала}'
-                    channels = '{channels}'
-                    ignores = '{ignores}'
-                    каналов = '{каналов}'
-                    игнора = '{игнора}'
-                    название_канала = '{название канала}'
-                    обязательный_параметр = '{**_обязательный параметр_**}'
-                    wl = '{wl}'
-                    бс = '{бс}'
-                    все = '{all}'
-                    преф = '{prefix}'
-                    оканалы = '{channels}'
-                    игноры = '{ignores}'
-                    пвмьюте = '{muteusers}'
-                    пропуск = '{pass}'
-                    #ru = '{ru}'
-                    #en = '{en}'
-                    if helpvalue == "❓":
-                        embed = discord.Embed(title=f"{get_language(ctx.guild.id, '❓ Группа: Информация')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                            ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                        embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}ping` — {get_language(ctx.guild.id, 'пинг бота и состояние шардов.')}\n`{pre}info` — {get_language(ctx.guild.id, 'информация о боте.')}\n`{pre}stats` — {get_language(ctx.guild.id, 'статистика бота.')}\n`{pre}server` — {get_language(ctx.guild.id, 'информация о сервере.')}\n`{pre}links` — {get_language(ctx.guild.id, 'полезные ссылки.')}\n`{pre}wlbots` — {get_language(ctx.guild.id, 'белый список ботов.')}", inline=False)
-                        embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                        embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                        await intermenu.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenuinfo, back])
-                        
-                        #Меню информации о команде helpmenuinfo
-                        def check(inter):
-                            return inter.message.id == msg.id
-
-                        while True:
-                            try:
-                                inter = await client.multiple_wait_for(
-                                    {
-                                        "dropdown": check,
-                                        "button_click": check
-                                    },
-                                    timeout=60
-                                )
-                            except asyncio.TimeoutError:
-                                await msg.edit(components=[row_1])
-                                return
-
-                            if inter.author != ctx.author:
-                                # Не тот автор
-                                await inter.reply(f"{get_language(ctx.guild.id, 'Этим меню управляете не вы!')}", ephemeral=True)
-                            elif inter.button:
-                                # Была нажата кнопка
-                                button_id = inter.button.custom_id
-                                if button_id == "Назад1":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id, '❓ Группа: Информация')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}ping` — {get_language(ctx.guild.id, 'пинг бота и состояние шардов.')}\n`{pre}info` — {get_language(ctx.guild.id, 'информация о боте.')}\n`{pre}stats` — {get_language(ctx.guild.id, 'статистика бота.')}\n`{pre}server` — {get_language(ctx.guild.id, 'информация о сервере.')}\n`{pre}links` — {get_language(ctx.guild.id, 'полезные ссылки.')}\n`{pre}wlbots` — {get_language(ctx.guild.id, 'белый список ботов.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenuinfo, back])
-                                elif button_id == "Назад":
-                                    embed1 = discord.Embed(title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}", description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{pre}help *info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{pre}help *owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{pre}help *admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{pre}help *moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{pre}help *fun` — {get_language(ctx.guild.id, 'команды веселья')}.", color=0xe21e1e)
-                                    embed1.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed1.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed1, components=[helpmenu, row_1])
-                                    break
-                            elif inter.select_menu:
-                                # Было нажато меню
-                                helpvaluei = inter.select_menu.selected_options[0].value
-                                if helpvaluei == "info1":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} ping", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотрите пинг бота и количество шардов.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}ping`", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back1])
-                                elif helpvaluei == "info2":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} info", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Вы можете прочитать информацию о боте VEGA ⦡#7724.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}info`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}info`\n╰ {get_language(ctx.guild.id,'Покажет информацию о боте VEGA ⦡#7724.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back1])
-                                elif helpvaluei == "info3":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} stats", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value='Посмотреть статистику бота VEGA ⦡#7724.', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}stats`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}stats`\n╰ Покажет статистику бота VEGA ⦡#7724.", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back1])
-                                elif helpvaluei == "info4":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} server", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотреть информацию о сервере. Количество ролей, каналов, пользователей и т.д.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}server`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}serverinfo`\n`{prefix}server-info`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}server`\n╰ {get_language(ctx.guild.id,'Покажет информацию о сервере.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back1])
-                                elif helpvaluei == "info5":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} links", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Бот отправит вам в лс ссылку сервера поддержки и документацию.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}links`", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back1])
-                                elif helpvaluei == "info6":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} wlbots", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотреть или скачать белый список ботов.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}wlbots`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}wlbots`\n╰ {get_language(ctx.guild.id,'Бот отправит вам белый список.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back1])
-                                
-                    elif helpvalue == "👑":
-                        embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Владельца')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                            ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                        embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}reset` — {get_language(ctx.guild.id,'сброс настроек бота.')}\n`{pre}rgive` — {get_language(ctx.guild.id,'выдать всем роль.')}\n`{pre}rselect` — {get_language(ctx.guild.id,'забрать у всех роль.')}\n`{pre}antibot` — {get_language(ctx.guild.id,'функция Антибот.')}\n`{pre}antimsg` — {get_language(ctx.guild.id,'функция Антисообщения.')}\n`{pre}antiinvite` — {get_language(ctx.guild.id,'функция Анти приглашения.')}\n`{pre}ignore` — {get_language(ctx.guild.id,'игнорировать ботов.')}\n`{pre}pass` — {get_language(ctx.guild.id,'пропуск для бота.')}\n`{pre}delchannels` — {get_language(ctx.guild.id,'удалить спам каналы | категории.')}\n`{pre}delroles` — {get_language(ctx.guild.id,'удалить спам роли.')}", inline=False)
-                        embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                        embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                        await intermenu.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenuowner, back])
-
-
-                        def check(inter):
-                            return inter.message.id == msg.id
-
-                        while True:
-                            try:
-                                inter = await client.multiple_wait_for(
-                                    {
-                                        "dropdown": check,
-                                        "button_click": check
-                                    },
-                                    timeout=60
-                                )
-                            except asyncio.TimeoutError:
-                                await msg.edit(components=[row_1])
-                                return
-
-                            if inter.author != ctx.author:
-                                # Не тот автор
-                                await inter.reply(f"{get_language(ctx.guild.id, 'Этим меню управляете не вы!')}", ephemeral=True)
-                            elif inter.button:
-                                # Была нажата кнопка
-                                button_id = inter.button.custom_id
-                                if button_id == "Назад2":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Владельца')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}reset` — {get_language(ctx.guild.id,'сброс настроек бота.')}\n`{pre}rgive` — {get_language(ctx.guild.id,'выдать всем роль.')}\n`{pre}rselect` — {get_language(ctx.guild.id,'забрать у всех роль.')}\n`{pre}antibot` — {get_language(ctx.guild.id,'функция Антибот.')}\n`{pre}antimsg` — {get_language(ctx.guild.id,'функция Антисообщения.')}\n`{pre}antiinvite` — {get_language(ctx.guild.id,'функция Анти приглашения.')}\n`{pre}ignore` — {get_language(ctx.guild.id,'игнорировать ботов.')}\n`{pre}pass` — {get_language(ctx.guild.id,'пропуск для бота.')}\n`{pre}delchannels` — {get_language(ctx.guild.id,'удалить спам каналы | категории.')}\n`{pre}delroles` — {get_language(ctx.guild.id,'удалить спам роли.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenuowner, back])
-                                elif button_id == "Назад":
-                                    embed1 = discord.Embed(title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}", description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{pre}help *info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{pre}help *owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{pre}help *admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{pre}help *moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{pre}help *fun` — {get_language(ctx.guild.id, 'команды веселья')}.", color=0xe21e1e)
-                                    embed1.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed1.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed1, components=[helpmenu, row_1])
-                                    break
-                            elif inter.select_menu:
-                                # Было нажато меню
-                                helpvalueo = inter.select_menu.selected_options[0].value
-                                if helpvalueo == "owner1":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} reset", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Команда предназначена для сброса настроек бота.')}\n{get_language(ctx.guild.id,'`prefix` — сброс префикса')}\n{get_language(ctx.guild.id,'`channels` — сброс игнорируемых каналов')}\n{get_language(ctx.guild.id,'`ignores` — сброс игнорируемых ботов')}\n{get_language(ctx.guild.id,'`muteusers` — сброс замьюченных пользователей')}\n{get_language(ctx.guild.id,'`pass` — сброс пропусков')}\n{get_language(ctx.guild.id,'`all` — сброс всех настроек бота')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}pass {все}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{преф}`; `{оканалы}`; `{игноры}`; `{пвмьюте}`; `{пропуск}`; `{все}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}reset all`\n╰ {get_language(ctx.guild.id,'Сбросит все настройки бота.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner2":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} rgive", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Выдать всем пользователям роль. Указанная вами роль не будет выдаваться ботам!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}rgive {get_language(ctx.guild.id,'{all}')} {get_language(ctx.guild.id,'{@роль}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{all}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}rgive all {get_language(ctx.guild.id,'@роль')}`\n╰ {get_language(ctx.guild.id,'Выдать всем роль.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner3":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} rselect", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Забрать у всех пользователей на сервере указанную роль.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}rselect {get_language(ctx.guild.id,'{all}')} {get_language(ctx.guild.id,'{@роль}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{all}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}rselect all {get_language(ctx.guild.id,'@роль')}`\n╰ {get_language(ctx.guild.id,'Забрать у всех роль.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner4":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} antibot", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Включите или отключите антибот. VEGA ⦡#7724 будет выгонять неизвестных ботов и пропускать ботов из белого списка.')}\n\
-                                        {get_language(ctx.guild.id,'[Открыть белый список](https://never-see.gitbook.io/vega-bot/v/russian/various/whitelist-of-bots)')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}antibot {get_language(ctx.guild.id,'{on}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{on}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{off}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}antibot on`\n╰ {get_language(ctx.guild.id,'Антибот включится.')}\n\n`{prefix}antibot off`\n╰ {get_language(ctx.guild.id,'Антибот отключится.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner5":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} antiinvite", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Включите или отключите анти приглашения. Работает на всех каналах, команду ограничить нельзя!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}antiinvite {get_language(ctx.guild.id,'{on}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{on}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{off}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}ai`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}antiinvite on`\n╰ {get_language(ctx.guild.id,'Анти приглашения включится.')}\n\n`{prefix}antiinvite off`\n╰ {get_language(ctx.guild.id,'Анти приглашения отключится.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner6":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} ignore", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Укажите бота. VEGA ⦡ (не) будет игнорировать действия указанных ботов.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}ignore {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{ID бота}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID бота}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}ignore add 795551166393876481`\n╰ {get_language(ctx.guild.id,'VEGA ⦡#7724 будет игнорировать бота.')}\n\n`{prefix}ignore remove 795551166393876481`\n╰ {get_language(ctx.guild.id,'VEGA ⦡#7724 перестанет игнорировать бота.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner7":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} pass", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Выдайте или заберите пропуск у бота. Пропуск можно выдавать только тем ботам, которые не занесены в игнорируемый и белый список. Команда работает только с включенной функцией **AntiBot**!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}pass {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{ID пользователя}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{ID пользователя}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}pass add {get_language(ctx.guild.id,'ID пользователя')}`\n╰ {get_language(ctx.guild.id,'Выдаст пропуск боту.')}\n\n`{prefix}rmute remove {get_language(ctx.guild.id,'ID пользователя')}`\n╰ {get_language(ctx.guild.id,'Заберет пропуск у бота.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner8":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} delchannels", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Бот начнет удалять каналы и | или категории с одинаковым названием.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}delchannels {get_language(ctx.guild.id,'{название канала}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{название канала}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}delchannels {get_language(ctx.guild.id,'Тест')}`\n╰ {get_language(ctx.guild.id,'Удалит одинаковые каналы и | или категории.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner9":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} delroles", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Бот начнет удалять роли с одинаковым названием.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}delroles {get_language(ctx.guild.id,'{@роль}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{название роли}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}delroles {get_language(ctx.guild.id,'@роль')}`\n╰ {get_language(ctx.guild.id,'Удалит одинаковые роли.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-                                elif helpvalueo == "owner10":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} antimsg", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Включите или отключите автоматическое удаление сообщений оффлайн ботов. VEGA ⦡#7724 будет удалять сообщения неизвестных ботов, которые находятся не в сети.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Владелец')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}antimsg {get_language(ctx.guild.id,'{on}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{on}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{off}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}antimsg on`\n╰ {get_language(ctx.guild.id,'Антисообщения включатся.')}\n\n`{prefix}antimsg off`\n╰ {get_language(ctx.guild.id,'Антисообщения отключатся.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back2])
-        
-                    elif helpvalue == "⚙️":
-                        embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Администратора')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                            ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                        embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}log` — {get_language(ctx.guild.id,'указать канал логов.')}\n`{pre}channel` — {get_language(ctx.guild.id,'ограничить команды бота по каналам.')}\n`{pre}rmute` — {get_language(ctx.guild.id,'указать роль Мьюта.')}\n`{pre}settings` — {get_language(ctx.guild.id,'настройки бота.')}\n`{pre}list` — {get_language(ctx.guild.id,'существующие списки.')}\n`{pre}echo` — {get_language(ctx.guild.id,'текст от лица бота.')}\n`{pre}emb` — {get_language(ctx.guild.id,'текст в панели от лица бота.')}\n`{pre}slowmode` — {get_language(ctx.guild.id,'установить медленный режим в канале.')}", inline=False)
-                        embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                        embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                        await intermenu.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenuadmin, back])
-                        def check(inter):
-                            return inter.message.id == msg.id
-                        while True:
-                            try:
-                                inter = await client.multiple_wait_for(
-                                    {
-                                        "dropdown": check,
-                                        "button_click": check
-                                    },
-                                    timeout=60
-                                )
-                            except asyncio.TimeoutError:
-                                await msg.edit(components=[row_1])
-                                return
-                            if inter.author != ctx.author:
-                                # Не тот автор
-                                await inter.reply(f"{get_language(ctx.guild.id, 'Этим меню управляете не вы!')}", ephemeral=True)
-                            elif inter.button:
-                                # Была нажата кнопка
-                                button_id = inter.button.custom_id
-                                if button_id == "Назад3":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Администратора')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}log` — {get_language(ctx.guild.id,'указать канал логов.')}\n`{pre}channel` — {get_language(ctx.guild.id,'ограничить команды бота по каналам.')}\n`{pre}rmute` — {get_language(ctx.guild.id,'указать роль Мьюта.')}\n`{pre}settings` — {get_language(ctx.guild.id,'настройки бота.')}\n`{pre}list` — {get_language(ctx.guild.id,'существующие списки.')}\n`{pre}echo` — {get_language(ctx.guild.id,'текст от лица бота.')}\n`{pre}emb` — {get_language(ctx.guild.id,'текст в панели от лица бота.')}\n`{pre}slowmode` — {get_language(ctx.guild.id,'установить медленный режим в канале.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenuadmin, back])
-                                elif button_id == "Назад":
-                                    embed1 = discord.Embed(title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}", description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{pre}help *info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{pre}help *owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{pre}help *admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{pre}help *moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{pre}help *fun` — {get_language(ctx.guild.id, 'команды веселья')}.", color=0xe21e1e)
-                                    embed1.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed1.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed1, components=[helpmenu, row_1])
-                                    break
-                            elif inter.select_menu:
-                                # Было нажато меню
-                                helpvaluea = inter.select_menu.selected_options[0].value
-                                if helpvaluea == "admin1":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} prefix", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Установите собственный префикс боту на своем сервере.')}\n{get_language(ctx.guild.id,'Запрещено использование символов  ` * ~ _ > |')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}prefix {get_language(ctx.guild.id,'{символы}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{символы}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}prefix !`\n╰ {get_language(ctx.guild.id,'Вы установите префикс боту.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin2":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} log", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора могут указать канал логов для бота!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}log {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{#канал}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{#канал}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID канала}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}log add 824916166400802902`\n╰ {get_language(ctx.guild.id,'Назначит канал логов боту.')}\n\n`{prefix}log remove`\n╰ {get_language(ctx.guild.id,'Удалит канал логов из списка.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin3":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} channel", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Ограничте бота VEGA ⦡#7724 по каналам. Изначально бот будет отвечать на команды во всех каналах, но если ему указать канал, то он будет отвечать на команды только в указанном канале.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}channel {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{#канал}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{add}` {get_language(ctx.guild.id,'или')} `{remove}` {get_language(ctx.guild.id,'и')} `{канал}` {get_language(ctx.guild.id,'или')} `{канала}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}channel add {get_language(ctx.guild.id,'#канал')}`\n╰ {get_language(ctx.guild.id,'Добавить канал в список.')}\n\n`{prefix}channel remove {get_language(ctx.guild.id,'#канал')}`\n╰ {get_language(ctx.guild.id,'Удалить канал из списка.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin4":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} rmute", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора могут указать роль мьюта для бота!')}\n\
-                                        {get_language(ctx.guild.id,'Если роль мьюта была удалена, ты вы можете указать ее заново.')}\n{get_language(ctx.guild.id,'Роль мьюта не будет настраиваться ботом!')} {get_language(ctx.guild.id,'Вы сами должны настроить роль мьюта!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}rmute {get_language(ctx.guild.id,'{add}')} {get_language(ctx.guild.id,'{@роль}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{add}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{remove}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}rmute add @Muted`\n╰ {get_language(ctx.guild.id,'Назначит роль мьюта боту.')}\n\n`{prefix}rmute remove @Muted`\n╰ {get_language(ctx.guild.id,'Удалит роль мьюта из списка.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin5":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} settings", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Вы можете посмотреть все настройки бота.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}settings`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}stg`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}settings`\n╰ {get_language(ctx.guild.id,'Посмотреть настройки.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin6":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} list", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотреть список ограниченных каналов, игнорируемых ботов, пропусков или количество ботов в белом списке.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}list {get_language(ctx.guild.id,'{channels}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{channels}')}`; `{get_language(ctx.guild.id,'{ignores}')}`; `{get_language(ctx.guild.id,'{pass}')}`; `{get_language(ctx.guild.id,'{wl}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}list channels`\n╰ {get_language(ctx.guild.id,'Список ограниченных каналов.')}\n\n`{prefix}list ignores`\n╰ {get_language(ctx.guild.id,'Список игнорируемых ботов.')}\n\n`{prefix}list pass`\n╰ {get_language(ctx.guild.id,'Боты, у которых есть пропуска на сервер.')}\n\n`{prefix}list wl`\n╰ {get_language(ctx.guild.id,'Белый список ботов.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin7":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} echo", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Только Администраторы могут писать от лица бота.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}echo {get_language(ctx.guild.id,'{текст}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{текст}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}echo` {get_language(ctx.guild.id,'Это тестовое сообщение!')}\n╰ {get_language(ctx.guild.id,'Отправит сообщение от лица бота.')}", inline=False)
-                                    embed.set_image(url=f"{get_language(ctx.guild.id,'https://media.discordapp.net/attachments/713751423128698950/859417527594254346/messages_from_VEGA__line_RU.png')}")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin8":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} emb", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Только Администраторы могут писать эмбед от лица бота.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}emb {get_language(ctx.guild.id,'{текст}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{текст}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}emb` {get_language(ctx.guild.id,'Это тестовое сообщение!')}\n╰ {get_language(ctx.guild.id,'Отправит сообщение эмбедом от лица бота.')}", inline=False)
-                                    embed.set_image(url=f"{get_language(ctx.guild.id,'https://media.discordapp.net/attachments/713751423128698950/859417490324455444/emb_messages_from_VEGA__line_RU.png')}")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                                elif helpvaluea == "admin9":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} slowmode", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Установите медленный режим в канале. Максимальное число в секундах 31600, минимальное 1. Число 0 сбросит медленный режим в канале.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}slowmode {get_language(ctx.guild.id,'{число}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{число}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}slowmode 2`\n╰ {get_language(ctx.guild.id,'Бот установит медленный режим в канале.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back3])
-                    
-                    elif helpvalue == "🛠":
-                        embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Модератора')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                            ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                        embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}checkwl` — {get_language(ctx.guild.id,'проверить бота в белом списке.')}\n`{pre}ban` — {get_language(ctx.guild.id,'забанить пользователя.')}\n`{pre}unban` — {get_language(ctx.guild.id,'разбанить пользователя.')}\n`{pre}kick` — {get_language(ctx.guild.id,'кикнуть пользователя.')}\n`{pre}clear` — {get_language(ctx.guild.id,'очистить чат.')}\n`{pre}uclear` — {get_language(ctx.guild.id,'очистить сообщения указанного пользователя.')}\n`{pre}rolen` — {get_language(ctx.guild.id,'посмотреть кол-во пользователей с ролью.')}\n`{pre}user` — {get_language(ctx.guild.id,'информация о пользователе.')}\n`{pre}mute` — {get_language(ctx.guild.id,'замьютить пользователя.')}\n`{pre}unmute` — {get_language(ctx.guild.id,'размьютить пользователя.')}", inline=False)
-                        embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                        embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                        await intermenu.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenumoder, back])
-                        def check(inter):
-                            return inter.message.id == msg.id
-                        while True:
-                            try:
-                                inter = await client.multiple_wait_for(
-                                    {
-                                        "dropdown": check,
-                                        "button_click": check
-                                    },
-                                    timeout=60
-                                )
-                            except asyncio.TimeoutError:
-                                await msg.edit(components=[row_1])
-                                return
-                            if inter.author != ctx.author:
-                                # Не тот автор
-                                await inter.reply(f"{get_language(ctx.guild.id, 'Этим меню управляете не вы!')}", ephemeral=True)
-                            elif inter.button:
-                                # Была нажата кнопка
-                                button_id = inter.button.custom_id
-                                if button_id == "Назад4":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Для Модератора')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}checkwl` — {get_language(ctx.guild.id,'проверить бота в белом списке.')}\n`{pre}ban` — {get_language(ctx.guild.id,'забанить пользователя.')}\n`{pre}unban` — {get_language(ctx.guild.id,'разбанить пользователя.')}\n`{pre}kick` — {get_language(ctx.guild.id,'кикнуть пользователя.')}\n`{pre}clear` — {get_language(ctx.guild.id,'очистить чат.')}\n`{pre}uclear` — {get_language(ctx.guild.id,'очистить сообщения указанного пользователя.')}\n`{pre}rolen` — {get_language(ctx.guild.id,'посмотреть кол-во пользователей с ролью.')}\n`{pre}user` — {get_language(ctx.guild.id,'информация о пользователе.')}\n`{pre}mute` — {get_language(ctx.guild.id,'замьютить пользователя.')}\n`{pre}unmute` — {get_language(ctx.guild.id,'размьютить пользователя.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenumoder, back])
-                                elif button_id == "Назад":
-                                    embed1 = discord.Embed(title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}", description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{pre}help *info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{pre}help *owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{pre}help *admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{pre}help *moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{pre}help *fun` — {get_language(ctx.guild.id, 'команды веселья')}.", color=0xe21e1e)
-                                    embed1.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed1.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed1, components=[helpmenu, row_1])
-                                    break
-                            elif inter.select_menu:
-                                # Было нажато меню
-                                helpvaluem = inter.select_menu.selected_options[0].value
-                                if helpvaluem == "moder1":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} checkwl", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Только пользователи с правом Администратора или Управления сервером, могут проверить наличие одного или всех ботов из сервера в белом списке!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Администратор')}\n{get_language(ctx.guild.id,'Управлять сервером')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}checkwl {get_language(ctx.guild.id,'{ID бота}')}` {get_language(ctx.guild.id,'или')} `{prefix}checkwl {get_language(ctx.guild.id,'{all}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID бота}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{all}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}checkwl 767994849600602143`\n╰ {get_language(ctx.guild.id,'Проверка бота в белом списке.')}\n\n`{prefix}checkwl all`\n╰ {get_language(ctx.guild.id,'Проверка ботов на сервере в списках.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder2":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} ban", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Забаньте нарушителя. Причина необязательна!')}\n{get_language(ctx.guild.id,'Бот забанит пользователя и удалит последние сообщения.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Банить пользователей')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}ban {get_language(ctx.guild.id,'{@пользователь}')} {get_language(ctx.guild.id,'[причина]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'[причина]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}ban {get_language(ctx.guild.id,'@пользователь')} {get_language(ctx.guild.id,'Спам приглашениями.')}`\n╰ {get_language(ctx.guild.id,'Бот забанит нарушителя.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder3":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} unban", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Разбаньте нарушителя.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Банить пользователей')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}unban {get_language(ctx.guild.id,'{@пользователь}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}unban {get_language(ctx.guild.id,'@пользователь')}`\n╰ {get_language(ctx.guild.id,'Бот разбанит нарушителя.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder4":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} kick", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Кикните нарушителя. Причина необязательна!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Кикать пользователей')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}kick {get_language(ctx.guild.id,'{@пользователь}')} {get_language(ctx.guild.id,'[причина]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'[причина]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}kick {get_language(ctx.guild.id,'@пользователь')} {get_language(ctx.guild.id,'Спам приглашениями.')}`\n╰ {get_language(ctx.guild.id,'Бот выгонит нарушителя из сервера.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder5":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} clear", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Очистите чат и сообщения пользователей на вашем сервере. Минимальное количество очистки сообщений 1, а максимальное 200.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Управлять сообщениями')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}clear {get_language(ctx.guild.id,'[@пользователь]')} {get_language(ctx.guild.id,'{число}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'[@пользователь]')}` {get_language(ctx.guild.id,'и')} | {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{число}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}purge`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}clear 12`\n╰ {get_language(ctx.guild.id,'Бот очистит сообщения в чате.')}\n\n`{prefix}clear {get_language(ctx.guild.id,'@пользователь')} 12`\n╰ {get_language(ctx.guild.id,'Бот очистит сообщения пользователя в чате.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder6":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} uclear", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Очистите сообщения пользователя. Бот очистит сообщения написанные пользователем за последнюю неделю.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Управлять сообщениями')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}uclear {get_language(ctx.guild.id,'{@пользователь}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}uclear {get_language(ctx.guild.id,'@пользователь')}`\n╰ {get_language(ctx.guild.id,'Бот очистит последние сообщения пользоватея.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder7":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} rolen", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотреть количество пользователей с данной ролью.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Управлять ролями')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}rolen {get_language(ctx.guild.id,'{@роль}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@роль}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID роли}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}rolen {роль}`\n╰ {get_language(ctx.guild.id,'Покажет количество пользователей с ролью.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder8":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} user", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотреть информацию о себе или пользователе.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Журнал аудита')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}user {get_language(ctx.guild.id,'[@пользователь]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'[@пользователь]')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'[ID пользователя]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}userinfo`\n`{prefix}user-info`\n`{prefix}u`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}user`\n╰ {get_language(ctx.guild.id,'Покажет информацию о вас.')}\n\n`{prefix}user {get_language(ctx.guild.id,'[@пользователь]')}`\n╰ {get_language(ctx.guild.id,'Покажет информацию о пользователе.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder9":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} mute", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Замьютьте нарушителя. Причина не обязательна.')}\n{get_language(ctx.guild.id,'Роль мьюта не будет настраиваться ботом!')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Журнал аудита')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}mute {get_language(ctx.guild.id,'{@пользователь}')} {get_language(ctx.guild.id,'[причина]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}` {get_language(ctx.guild.id,'и')} `{get_language(ctx.guild.id,'[причина]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}mute {get_language(ctx.guild.id,'@пользователь')} {get_language(ctx.guild.id,'Спам сообщениями.')}`\n╰ {get_language(ctx.guild.id,'Бот выдаст нарушителю роль мьюта.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-                                elif helpvaluem == "moder10":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} unmute", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Забрать у нарушителя роль мьюта.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Право у пользователя:')}", value=f"{get_language(ctx.guild.id,'Журнал аудита')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}unmute {get_language(ctx.guild.id,'{@пользователь}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{@пользователь}')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'{ID пользователя}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}unmute {get_language(ctx.guild.id,'@пользователь')}`\n╰ {get_language(ctx.guild.id,'Бот заберет у нарушителя роль мьюта.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back4])
-
-                    elif helpvalue == "🎉":
-                        embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Веселье')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                            ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                        embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}8ball` — {get_language(ctx.guild.id,'задать вопрос шару.')}\n`{pre}avatar` — {get_language(ctx.guild.id,'посмотреть аватар пользователя.')}\n`{pre}emoji` — {get_language(ctx.guild.id,'посмотреть эмодзи.')}\n`{pre}random` — {get_language(ctx.guild.id,'рандомное число, от и до.')}\n`{pre}math` — {get_language(ctx.guild.id,'обычный калькулятор.')}", inline=False)
-                        embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                        embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                        await intermenu.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenufun, back])
-
-
-                        def check(inter):
-                            return inter.message.id == msg.id
-
-                        while True:
-                            try:
-                                inter = await client.multiple_wait_for(
-                                    {
-                                        "dropdown": check,
-                                        "button_click": check
-                                    },
-                                    timeout=60
-                                )
-                            except asyncio.TimeoutError:
-                                await msg.edit(components=[row_1])
-                                return
-
-                            if inter.author != ctx.author:
-                                # Не тот автор
-                                await inter.reply(f"{get_language(ctx.guild.id, 'Этим меню управляете не вы!')}", ephemeral=True)
-                            elif inter.button:
-                                # Была нажата кнопка
-                                button_id = inter.button.custom_id
-                                if button_id == "Назад5":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Группа: Веселье')}", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        ㅤ{get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}\n\n{get_language(ctx.guild.id, f'• Узнать информацию о команде:')} `{pre}{get_language(ctx.guild.id, 'help [команда]')}`", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id, 'Команды:')}", value=f"`{pre}8ball` — {get_language(ctx.guild.id,'задать вопрос шару.')}\n`{pre}avatar` — {get_language(ctx.guild.id,'посмотреть аватар пользователя.')}\n`{pre}emoji` — {get_language(ctx.guild.id,'посмотреть эмодзи.')}\n`{pre}random` — {get_language(ctx.guild.id,'рандомное число, от и до.')}\n`{pre}math` — {get_language(ctx.guild.id,'обычный калькулятор.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[helpmenufun, back])
-                                elif button_id == "Назад":
-                                    embed1 = discord.Embed(title=f"{get_language(ctx.guild.id, ':wrench: Список доступных команд:')}", description=f"{get_language(ctx.guild.id, 'Префикс на сервере:')} `{prefix}`\n{get_language(ctx.guild.id,'Сменить язык:')} `{prefix}{get_language(ctx.guild.id,'lang en')}`\n\n<:info:860380081268588545> `{pre}help *info` — {get_language(ctx.guild.id, 'команды информации')}.\n\n<:owner:860380081594564688> `{pre}help *owner` — {get_language(ctx.guild.id, 'команды для Владельца')}.\n\n<:admin:860380081536761886> `{pre}help *admin` — {get_language(ctx.guild.id, 'команды для Администратора')}.\n\n<:moder:860380081627856906> `{pre}help *moder` — {get_language(ctx.guild.id, 'команды для Модератора')}.\n\n<:fun:860380081637031936> `{pre}help *fun` — {get_language(ctx.guild.id, 'команды веселья')}.", color=0xe21e1e)
-                                    embed1.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed1.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed1, components=[helpmenu, row_1])
-                                    break
-                            elif inter.select_menu:
-                                # Было нажато меню
-                                helpvaluef = inter.select_menu.selected_options[0].value
-                                if helpvaluef == "fun1":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} 8ball", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Задайте вопрос шару и узнайте правду.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}8ball {get_language(ctx.guild.id,'{текст}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{текст}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}8ball {get_language(ctx.guild.id,'Завтра будет ясная погода?')}`\n╰ {get_language(ctx.guild.id,'Бот ответит на ваш вопрос.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back5])
-                                elif helpvaluef == "fun2":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} avatar", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Посмотрите и скачайте аватар пользователя.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}avatar {get_language(ctx.guild.id,'[@пользователь]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'[@пользователь]')}` {get_language(ctx.guild.id,'или')} `{get_language(ctx.guild.id,'[ID пользователя]')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}ava`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}avatar`\n╰ {get_language(ctx.guild.id,'Покажет ваш аватар.')}\n\n`{prefix}avatar {get_language(ctx.guild.id,'[@пользователь]')}`\n╰ {get_language(ctx.guild.id,'Покажет аватар пользователя.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back5])
-                                elif helpvaluef == "fun3":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} emoji", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Вы можете осмотреть и скачать эмодзи.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}emoji {get_language(ctx.guild.id,'{эмодзи}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{эмодзи}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"{prefix}emoji <:python:826158844555427891>\n╰ {get_language(ctx.guild.id,'Посмотреть эмодзи.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back5])
-                                elif helpvaluef == "fun4":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} random", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Если хотите выбрать случайное число, то воспользуйтесь данной командой.')}", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}random {a} {b}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{a}` {get_language(ctx.guild.id,'и')} `{b}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}r`\n`{prefix}rand`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}random 5 10`\n╰ {get_language(ctx.guild.id,'Бот выберет рандомное число.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back5])
-                                elif helpvaluef == "fun5":
-                                    embed = discord.Embed(title=f"{get_language(ctx.guild.id,'❓ Команда:')} math", description=f"> {get_language(ctx.guild.id, '**{**_обязательный параметр_**}**')} ㅤ\
-                                        {get_language(ctx.guild.id, '**[**_необязательный параметр_**]**')}", color=0xd81911)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Описание:')}", value=f"{get_language(ctx.guild.id,'Калькулятор для решения простых примеров.')}\n{get_language(ctx.guild.id,'Используются знаки')} `() + - / *`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Использование:')}", value=f"`{prefix}math {get_language(ctx.guild.id,'{пример}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Аргументы:')}", value=f"`{get_language(ctx.guild.id,'{пример}')}`", inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Подобные:')}", value=f'`{prefix}calculate`\n`{prefix}calc`', inline=False)
-                                    embed.add_field(name=f"{get_language(ctx.guild.id,'Примеры:')}", value=f"`{prefix}math 5*5`\n╰ {get_language(ctx.guild.id,'Бот решит пример за вас.')}", inline=False)
-                                    embed.set_image(url="https://i.postimg.cc/tRrYVjbx/VEGA-line.png")
-                                    embed.set_footer(icon_url=client.get_user(351020816466575372).avatar.replace(size=1024), text=f"{client.get_user(351020816466575372)} © 2021 - {timestamp.strftime(r'%Y')} {get_language(ctx.guild.id, 'Все права защищены!')}")
-                                    await inter.reply(type=ResponseType.UpdateMessage, embed=embed, components=[back5])
-"""
-
-
-
 # Перезапустить ког
-@client.slash_command(name="reload", description="Restart the cog | Переапустить ког", default_permission=False)
+@client.slash_command(name="reload",
+    description="Restart the cog | Перезапустить ког",
+    guild_ids=[826022179568615445],
+    )
 @commands.guild_only()
-@commands.guild_permissions(826022179568615445, users={351020816466575372: True})
+#@commands.guild_permissions(826022179568615445, users={351020816466575372: True})
 async def reload(ctx,  cog_name: str = commands.Param(name="cog_name", description="Specify the cog | Укажите ког")):
-    if ctx.author.id != 351020816466575372:
-        embed = discord.Embed(description=f"**{get_language(ctx.guild.id,'Команда только для РАЗРАБОТЧИКОВ!')}**", color=0xcc1a1d)
+    if ctx.author.id == 351020816466575372:
+        try:
+            client.unload_extension("cogs." + cog_name)
+            client.load_extension("cogs." + cog_name)
+            await ctx.send(f"Ког **{cog_name}** был перезапущен!", ephemeral=True)
+        except:
+            await ctx.send(f"Ошибка в обновлении кога [ `{cog_name}` ]!", ephemeral=True)
+    else:
+        embed = discord.Embed(
+            description=f"**{get_language(ctx.guild.id,'Команда только для РАЗРАБОТЧИКОВ!')}**",
+            color=0xCC1A1D,
+        )
         await ctx.send(embed=embed, ephemeral=True)
-    client.unload_extension("cogs." + cog_name)
-    client.load_extension("cogs." + cog_name)
-    await ctx.send(f"Ког **{cog_name}** был перезапущен!", ephemeral=True)
-
-
 
 
 # Тест
@@ -3397,178 +637,6 @@ async def reload(ctx,  cog_name: str = commands.Param(name="cog_name", descripti
 
 
 # Оброботчик ошибок в оставшееся время команды (Неверная команда)
-kd = {}
-
-
-@client.event
-async def on_command_error(ctx, error):
-    try:
-        enabled = deactivatedata[0]["Option"]
-    except KeyError:
-        enabled = False
-    if enabled:
-        pass
-    else:
-        """with open('logging/console_log.log','a') as file:
-        file.write(f"{str(error)}\n\n")
-        print("[ ИНФО ]  Ошибки были сохранены!\n")"""
-
-        if await checkchannel(ctx):
-            global kd
-            try:
-                unix = kd[ctx.author.id]
-            except:
-                unix = 0
-            if isinstance(error, commands.CommandOnCooldown):
-                if unix < int(time.time()):
-                    embed = discord.Embed(
-                        description=f"{get_language(ctx.guild.id,'⏱ Кулдаун команды. Будет активна через:')}\n    {format(hmsd(ctx, error.retry_after))}",
-                        color=0x2F3136,
-                    )
-                    await ctx.message.reply(embed=embed, delete_after=12.0)
-                    msg = ctx.message
-                    try:
-                        await msg.add_reaction("<a:time:811137967309586452>")
-                    except:
-                        pass
-                    kd[ctx.author.id] = int(time.time()) + 10
-
-            if isinstance(error, commands.MissingPermissions):
-                if unix < int(time.time()):
-                    embed = discord.Embed(
-                        description=f"{get_language(ctx.guild.id,':warning: Отсутствуют необходимые полномочия!')}",
-                        color=0xFCC21B,
-                    )
-                    missing = str(error)
-                    missing = missing.replace("You are missing ", "")
-                    missing = missing.replace(" permission(s) to run this command.", "")
-                    missing = missing.lower()
-                    perms = {
-                        "administrator": f"{get_language(ctx.guild.id,'Администратор')}",
-                        "view audit log": f"{get_language(ctx.guild.id,'Просмотр журнала аудита')}",
-                        "manage server": f"{get_language(ctx.guild.id,'Управлять сервером')}",
-                        "manage roles": f"{get_language(ctx.guild.id,'Управлять ролями')}",
-                        "manage channels": f"{get_language(ctx.guild.id,'Управлять каналами')}",
-                        "kick members": f"{get_language(ctx.guild.id,'Выгонять участников')}",
-                        "ban members": f"{get_language(ctx.guild.id,'Банить участников')}",
-                        "change nickname": f"{get_language(ctx.guild.id,'Изменить никнейм')}",
-                        "manage nicknames": f"{get_language(ctx.guild.id,'Управлять никнеймами')}",
-                        "view channels": f"{get_language(ctx.guild.id,'Читать сообщения')}",
-                        "send messages": f"{get_language(ctx.guild.id,'Отправлять сообщения')}",
-                        "send tts messages": f"{get_language(ctx.guild.id,'Отправлять TTS сообщения')}",
-                        "manage messages": f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
-                        "embed links": f"{get_language(ctx.guild.id,'Встраивать ссылки')}",
-                        "attach files": f"{get_language(ctx.guild.id,'Прикреплять файлы')}",
-                    }
-                    ctx.command.reset_cooldown(ctx)
-                    if missing in perms:
-                        embed.add_field(
-                            name=f"{get_language(ctx.guild.id,'Необходимое право:')}",
-                            value=f"`{perms[missing]}`",
-                            inline=False,
-                        )
-                    await ctx.message.reply(embed=embed, delete_after=12)
-                    msg = ctx.message
-                    try:
-                        await msg.add_reaction(":warning:")
-                    except:
-                        pass
-                    kd[ctx.author.id] = int(time.time()) + 10
-
-            if isinstance(error, commands.errors.BotMissingPermissions):
-                if unix < int(time.time()):
-                    embed = discord.Embed(
-                        description=":warning: У бота отсутствую необходимые полномочия!",
-                        color=0xFCC21B,
-                    )
-                    missing = str(error)
-                    missing = missing.replace("Bot requires ", "")
-                    missing = missing.replace(" permission(s) to run this command.", "")
-                    missing = missing.lower()
-                    perms = {
-                        "administrator": f"{get_language(ctx.guild.id,'Администратор')}",
-                        "view audit log": f"{get_language(ctx.guild.id,'Просмотр журнала аудита')}",
-                        "manage server": f"{get_language(ctx.guild.id,'Управлять сервером')}",
-                        "manage channels": f"{get_language(ctx.guild.id,'Управлять каналами')}",
-                        "manage roles": f"{get_language(ctx.guild.id,'Управлять ролями')}",
-                        "kick members": f"{get_language(ctx.guild.id,'Выгонять участников')}",
-                        "ban members": f"{get_language(ctx.guild.id,'Банить участников')}",
-                        "change nickname": f"{get_language(ctx.guild.id,'Изменить никнейм')}",
-                        "manage nicknames": f"{get_language(ctx.guild.id,'Управлять никнеймами')}",
-                        "view channels": f"{get_language(ctx.guild.id,'Читать сообщения')}",
-                        "send messages": f"{get_language(ctx.guild.id,'Отправлять сообщения')}",
-                        "send tts messages": f"{get_language(ctx.guild.id,'Отправлять TTS сообщения')}",
-                        "manage messages": f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
-                        "embed links": f"{get_language(ctx.guild.id,'Встраивать ссылки')}",
-                        "attach files": f"{get_language(ctx.guild.id,'Прикреплять файлы')}",
-                    }
-                    ctx.command.reset_cooldown(ctx)
-                    if missing in perms:
-                        embed.add_field(
-                            name=f"{get_language(ctx.guild.id,'Необходимое право:')}",
-                            value=f"`{perms[missing]}`",
-                            inline=False,
-                        )
-                    await ctx.message.reply(embed=embed, delete_after=12)
-                    msg = ctx.message
-                    try:
-                        await msg.add_reaction(":warning:")
-                    except:
-                        pass
-                    kd[ctx.author.id] = int(time.time()) + 10
-
-            if isinstance(error, commands.MemberNotFound):
-                if unix < int(time.time()):
-                    ctx.command.reset_cooldown(ctx)
-                    embed = discord.Embed(
-                        description=f"{get_language(ctx.guild.id,':warning: Пользователь не найден!')}",
-                        color=0xFCC21B,
-                    )
-                    await ctx.send(embed=embed, delete_after=5.0)
-                    msg = ctx.message
-                    await msg.add_reaction(":warning:")
-                    kd[ctx.author.id] = int(time.time()) + 10
-            if isinstance(error, commands.UserNotFound):
-                if unix < int(time.time()):
-                    ctx.command.reset_cooldown(ctx)
-                    embed = discord.Embed(
-                        description=f"{get_language(ctx.guild.id,':warning: Пользователь не найден!')}",
-                        color=0xFCC21B,
-                    )
-                    await ctx.send(embed=embed, delete_after=5.0)
-                    msg = ctx.message
-                    try:
-                        await msg.add_reaction(":warning:")
-                    except:
-                        pass
-                    kd[ctx.author.id] = int(time.time()) + 10
-            # if isinstance(error, commands.ChannelNotFound):
-            #    if unix < int(time.time()):
-            #        ctx.command.reset_cooldown(ctx)
-            #        embed = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Канал не найден!')}", color=0xfcc21b)
-            #        await ctx.send(embed=embed, delete_after=5.0)
-            #        msg = ctx.message
-            #        await msg.add_reaction(':warning:')
-            #        kd[ctx.author.id] = int(time.time()) + 10
-            if isinstance(error, commands.RoleNotFound):
-                if unix < int(time.time()):
-                    ctx.command.reset_cooldown(ctx)
-                    embed = discord.Embed(
-                        description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Роли не обнаружены!')}",
-                        color=0xCC1A1D,
-                    )
-                    await ctx.send(embed=embed, delete_after=5.0)
-                    msg = ctx.message
-                    try:
-                        await msg.add_reaction(":warning:")
-                    except:
-                        pass
-                    kd[ctx.author.id] = int(time.time()) + 10
-            else:
-                raise error
-        else:
-            pass
-
 
 @client.event
 async def on_slash_command_error(inter, error):
@@ -3580,136 +648,166 @@ async def on_slash_command_error(inter, error):
     if enabled:
         pass
     else:
-        if await checkchannel(ctx):
-            if isinstance(error, commands.CommandOnCooldown):
-                embed = discord.Embed(
-                    description=f"{get_language(ctx.guild.id,'⏱ Кулдаун команды. Будет активна через:')}\n    {format(hmsd(ctx, error.retry_after))}",
-                    color=0x2F3136,
-                )
-                await ctx.send(embed=embed, ephemeral=True)
+        #if await checkchannel(ctx):
+        if isinstance(error, commands.CommandOnCooldown):
+            embed = discord.Embed(
+                description=f"{get_language(ctx.guild.id,'⏱ Кулдаун команды. Будет активна через:')}\n    {format(hmsd(ctx, error.retry_after))}",
+                color=0x2F3136,
+            )
+            await ctx.send(embed=embed, ephemeral=True)
 
-            if isinstance(error, commands.MissingPermissions):
-                embed = discord.Embed(
-                    description=f"{get_language(ctx.guild.id,':warning: Отсутствуют необходимые полномочия!')}",
-                    color=0xFCC21B,
-                )
-                missing = str(error)
-                missing = missing.replace("You are missing ", "")
-                missing = missing.replace(" permission(s) to run this command.", "")
-                missing = missing.lower()
-                perms = {
-                    "administrator": f"{get_language(ctx.guild.id,'Администратор')}",
-                    "view audit log": f"{get_language(ctx.guild.id,'Просмотр журнала аудита')}",
-                    "manage server": f"{get_language(ctx.guild.id,'Управлять сервером')}",
-                    "manage roles": f"{get_language(ctx.guild.id,'Управлять ролями')}",
-                    "manage channels": f"{get_language(ctx.guild.id,'Управлять каналами')}",
-                    "kick members": f"{get_language(ctx.guild.id,'Выгонять участников')}",
-                    "ban members": f"{get_language(ctx.guild.id,'Банить участников')}",
-                    "change nickname": f"{get_language(ctx.guild.id,'Изменить никнейм')}",
-                    "manage nicknames": f"{get_language(ctx.guild.id,'Управлять никнеймами')}",
-                    "view channels": f"{get_language(ctx.guild.id,'Читать сообщения')}",
-                    "send messages": f"{get_language(ctx.guild.id,'Отправлять сообщения')}",
-                    "send tts messages": f"{get_language(ctx.guild.id,'Отправлять TTS сообщения')}",
-                    "manage messages": f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
-                    "embed links": f"{get_language(ctx.guild.id,'Встраивать ссылки')}",
-                    "attach files": f"{get_language(ctx.guild.id,'Прикреплять файлы')}",
-                }
-                try:
-                    ctx.command.reset_cooldown(ctx)
-                except:
-                    pass
-                if missing in perms:
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Необходимое право:')}",
-                        value=f"`{perms[missing]}`",
-                        inline=False,
-                    )
-                await ctx.send(embed=embed, ephemeral=True)
+        if isinstance(error, commands.CommandNotFound):
+            return
 
-            if isinstance(error, commands.errors.BotMissingPermissions):
-                embed = discord.Embed(
-                    description=":warning: У бота отсутствую необходимые полномочия!",
-                    color=0xFCC21B,
+        if isinstance(error, commands.MissingPermissions):
+            embed = discord.Embed(
+                description=f"{get_language(ctx.guild.id,':warning: Отсутствуют необходимые полномочия!')}",
+                color=0xFCC21B,
+            )
+            missing = str(error)
+            missing = missing.replace("You are missing ", "")
+            missing = missing.replace(
+                " permission(s) to run this command.", "")
+            missing = missing.lower()
+            perms = {
+                "administrator": f"{get_language(ctx.guild.id,'Администратор')}",
+                "view audit log": f"{get_language(ctx.guild.id,'Просмотр журнала аудита')}",
+                "manage server": f"{get_language(ctx.guild.id,'Управлять сервером')}",
+                "manage roles": f"{get_language(ctx.guild.id,'Управлять ролями')}",
+                "manage channels": f"{get_language(ctx.guild.id,'Управлять каналами')}",
+                "kick members": f"{get_language(ctx.guild.id,'Выгонять участников')}",
+                "ban members": f"{get_language(ctx.guild.id,'Банить участников')}",
+                "change nickname": f"{get_language(ctx.guild.id,'Изменить никнейм')}",
+                "manage nicknames": f"{get_language(ctx.guild.id,'Управлять никнеймами')}",
+                "view channels": f"{get_language(ctx.guild.id,'Читать сообщения')}",
+                "send messages": f"{get_language(ctx.guild.id,'Отправлять сообщения')}",
+                "send tts messages": f"{get_language(ctx.guild.id,'Отправлять TTS сообщения')}",
+                "manage messages": f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
+                "embed links": f"{get_language(ctx.guild.id,'Встраивать ссылки')}",
+                "attach files": f"{get_language(ctx.guild.id,'Прикреплять файлы')}",
+            }
+            try:
+                ctx.command.reset_cooldown(ctx)
+            except:
+                pass
+            if missing in perms:
+                embed.add_field(
+                    name=f"{get_language(ctx.guild.id,'Необходимое право:')}",
+                    value=f"`{perms[missing]}`",
+                    inline=False,
                 )
-                missing = str(error)
-                missing = missing.replace("Bot requires ", "")
-                missing = missing.replace(" permission(s) to run this command.", "")
-                missing = missing.lower()
-                perms = {
-                    "administrator": f"{get_language(ctx.guild.id,'Администратор')}",
-                    "view audit log": f"{get_language(ctx.guild.id,'Просмотр журнала аудита')}",
-                    "manage server": f"{get_language(ctx.guild.id,'Управлять сервером')}",
-                    "manage channels": f"{get_language(ctx.guild.id,'Управлять каналами')}",
-                    "manage roles": f"{get_language(ctx.guild.id,'Управлять ролями')}",
-                    "kick members": f"{get_language(ctx.guild.id,'Выгонять участников')}",
-                    "ban members": f"{get_language(ctx.guild.id,'Банить участников')}",
-                    "change nickname": f"{get_language(ctx.guild.id,'Изменить никнейм')}",
-                    "manage nicknames": f"{get_language(ctx.guild.id,'Управлять никнеймами')}",
-                    "view channels": f"{get_language(ctx.guild.id,'Читать сообщения')}",
-                    "send messages": f"{get_language(ctx.guild.id,'Отправлять сообщения')}",
-                    "send tts messages": f"{get_language(ctx.guild.id,'Отправлять TTS сообщения')}",
-                    "manage messages": f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
-                    "embed links": f"{get_language(ctx.guild.id,'Встраивать ссылки')}",
-                    "attach files": f"{get_language(ctx.guild.id,'Прикреплять файлы')}",
-                }
-                try:
-                    ctx.command.reset_cooldown(ctx)
-                except:
-                    pass
-                if missing in perms:
-                    embed.add_field(
-                        name=f"{get_language(ctx.guild.id,'Необходимое право:')}",
-                        value=f"`{perms[missing]}`",
-                        inline=False,
-                    )
-                await ctx.send(embed=embed, ephemeral=True)
+            await ctx.send(embed=embed, ephemeral=True)
 
-            if isinstance(error, commands.MemberNotFound):
-                try:
-                    ctx.command.reset_cooldown(ctx)
-                except:
-                    pass
-                embed = discord.Embed(
-                    description=f"{get_language(ctx.guild.id,':warning: Пользователь не найден!')}",
-                    color=0xFCC21B,
+        if isinstance(error, commands.BotMissingPermissions):
+            embed = discord.Embed(
+                description=":warning: У бота отсутствую необходимые полномочия!",
+                color=0xFCC21B,
+            )
+            missing = str(error)
+            missing = missing.replace("Bot requires ", "")
+            missing = missing.replace(
+                " permission(s) to run this command.", "")
+            missing = missing.lower()
+            perms = {
+                "administrator": f"{get_language(ctx.guild.id,'Администратор')}",
+                "view audit log": f"{get_language(ctx.guild.id,'Просмотр журнала аудита')}",
+                "manage server": f"{get_language(ctx.guild.id,'Управлять сервером')}",
+                "manage channels": f"{get_language(ctx.guild.id,'Управлять каналами')}",
+                "manage roles": f"{get_language(ctx.guild.id,'Управлять ролями')}",
+                "kick members": f"{get_language(ctx.guild.id,'Выгонять участников')}",
+                "ban members": f"{get_language(ctx.guild.id,'Банить участников')}",
+                "change nickname": f"{get_language(ctx.guild.id,'Изменить никнейм')}",
+                "manage nicknames": f"{get_language(ctx.guild.id,'Управлять никнеймами')}",
+                "view channels": f"{get_language(ctx.guild.id,'Читать сообщения')}",
+                "send messages": f"{get_language(ctx.guild.id,'Отправлять сообщения')}",
+                "send tts messages": f"{get_language(ctx.guild.id,'Отправлять TTS сообщения')}",
+                "manage messages": f"{get_language(ctx.guild.id,'Управлять сообщениями')}",
+                "embed links": f"{get_language(ctx.guild.id,'Встраивать ссылки')}",
+                "attach files": f"{get_language(ctx.guild.id,'Прикреплять файлы')}",
+            }
+            try:
+                ctx.command.reset_cooldown(ctx)
+            except:
+                pass
+            if missing in perms:
+                embed.add_field(
+                    name=f"{get_language(ctx.guild.id,'Необходимое право:')}",
+                    value=f"`{perms[missing]}`",
+                    inline=False,
                 )
-                await ctx.send(embed=embed, ephemeral=True)
-            if isinstance(error, commands.UserNotFound):
-                try:
-                    ctx.command.reset_cooldown(ctx)
-                except:
-                    pass
-                embed = discord.Embed(
-                    description=f"{get_language(ctx.guild.id,':warning: Пользователь не найден!')}",
-                    color=0xFCC21B,
-                )
-                await ctx.send(embed=embed, ephemeral=True)
-            """if isinstance(error, commands.ChannelNotFound):
-                try:ctx.command.reset_cooldown(ctx)
-                except:pass
-                embed = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Канал не найден!')}", color=0xfcc21b)
-                await ctx.send(embed=embed, ephemeral=True)"""
-            if isinstance(error, commands.RoleNotFound):
-                try:
-                    ctx.command.reset_cooldown(ctx)
-                except:
-                    pass
-                embed = discord.Embed(
-                    description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Роли не обнаружены!')}",
-                    color=0xCC1A1D,
-                )
-                await ctx.send(embed=embed, ephemeral=True)
-            else:
-                raise error
+            await ctx.send(embed=embed, ephemeral=True)
+
+        if isinstance(error, commands.MemberNotFound):
+            try:
+                ctx.command.reset_cooldown(ctx)
+            except:
+                pass
+            embed = discord.Embed(
+                description=f"{get_language(ctx.guild.id,':warning: Пользователь не найден!')}",
+                color=0xFCC21B,
+            )
+            await ctx.send(embed=embed, ephemeral=True)
+        if isinstance(error, commands.UserNotFound):
+            try:
+                ctx.command.reset_cooldown(ctx)
+            except:
+                pass
+            embed = discord.Embed(
+                description=f"{get_language(ctx.guild.id,':warning: Пользователь не найден!')}",
+                color=0xFCC21B,
+            )
+            await ctx.send(embed=embed, ephemeral=True)
+        """if isinstance(error, commands.ChannelNotFound):
+            try:ctx.command.reset_cooldown(ctx)
+            except:pass
+            embed = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Канал не найден!')}", color=0xfcc21b)
+            await ctx.send(embed=embed, ephemeral=True)"""
+        if isinstance(error, commands.RoleNotFound):
+            try:
+                ctx.command.reset_cooldown(ctx)
+            except:
+                pass
+            embed = discord.Embed(
+                description=f"{get_language(ctx.guild.id,'<a:vega_x:810843492266803230> Роли не обнаружены!')}",
+                color=0xCC1A1D,
+            )
+            await ctx.send(embed=embed, ephemeral=True)
         else:
-            pass
+            #pass
+            raise error
+        """else:
+            pass"""
 
 
-# AntiBot код:
+"""@client.event
+async def on_error(error, item, interaction):
+    print(f"\n\n\033[31m ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤＥＲＲＯＲㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂\n\n\033[0m")
+    try:
+        print(f"\033[1;31m ERROR: \033[0m\033[31m {error}\033[0m")
+    except:
+        pass
+    try:
+        print(f"\n\n\033[1;31m Item:\033[0m\033[31m {item}\033[0m")
+    except:
+        pass
+    try:
+        print(f"\n\n\033[1;31m Interaction:\033[0m\033[31m {interaction}\033[0m")
+    except:
+        pass
+    print(f"\n\033[31m ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂ㅤ▂\033[0m\n\n\033[31m")
+    raise error"""
+
+
+
+# AntiBot и Антикраш код:
+# Весь код накрылся к хуям собычим из-за ебаного MongoDB с его новым кодом.
+# Его нужно исправить и очень срочно
+
 
 # Автокик новых ботов
 @client.event
 async def on_member_join(member):
+    # Остальная команда антибота
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -3717,159 +815,705 @@ async def on_member_join(member):
     if enabled:
         pass
     else:
-        mr = gdata("vega", "muterole")
+        """mr = gdata("vega", "muterole")
         w = gdata("vega", "mute_users")
         try:
             if str(member.id) in w[str(member.guild.id)]:
                 muterole = member.guild.get_role(int(mr[str(member.guild.id)]))
                 await member.add_roles(muterole)
             else:
-                print("[ ИНФО ]  Пользователь не замьючен!\n")
+                print("\033[36m [ ИНФО ]  Пользователь не замьючен!\n")
                 pass
         except:
-            print("!!! [ ОШИБКА ]  Роль мьюта не указана!\n")
-
-        lc = gdata("vega", "logchannel")
-        wl = gdata("vega", "ignorebots")
-        if str(member.guild.id) in wl:
-            dop = wl[str(member.guild.id)]
-        else:
-            dop = ""
+            print("!!! [ ОШИБКА ]  Роль мьюта не указана!\n")"""
 
         try:
-            enabled = deactivatedata[0]["Option"]
+            enabled_1 = hard_antibotdata[member.guild.id]["enabled"]
         except KeyError:
-            enabled = False
-        if enabled:
-            pass
-        else:
-            data = gdata("vega", "antibot")
-            w = gdata("vega", "wlbots")
-            p = gdata("vega", "passbots")
+            enabled_1 = False
+        try:
+            enabled_2 = antibotdata[member.guild.id]["enabled"]
+        except KeyError:
+            enabled_2 = False
+        if member.bot:
             try:
-                enabled = data[str(member.guild.id)]
-            except KeyError:
-                enabled = False
-            if member.bot:
-                try:
+                if not enabled_1:
                     async for entry in member.guild.audit_logs(
                         limit=1, action=discord.AuditLogAction.bot_add
                     ):
                         if (
-                            not str(member.id) in w[str("Bots")]
-                            and not str(member.id) in dop
+                            not member.id in wlbotsdata[0]["Bots"]
                         ):
-                            if enabled:
-                                if str(member.guild.id) in p:
-                                    pss = p[str(member.guild.id)]
+                            if member.guild.id in ignorebotsdata:
+                                if "rights" in ignorebotsdata[member.guild.id]:
+                                    if member.id not in ignorebotsdata[member.guild.id]["rights"]:
+                                        if enabled_2:
+                                            if member.guild.id in passbotsdata:
+                                                if "rights" in passbotsdata[member.guild.id]:
+                                                    if member.id not in passbotsdata[member.guild.id]["rights"]:
+                                                        # await asyncio.sleep(2)
+                                                        await member.ban(
+                                                            reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                            delete_message_days=1,
+                                                        )
+                                                        # await asyncio.sleep(5)
+                                                        embed = discord.Embed(
+                                                            description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                            color=0xFCC21B,
+                                                        )
+                                                        if member.public_flags.http_interactions_bot:
+                                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                        else:
+                                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                        if member.public_flags.verified_bot:
+                                                            verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                        else:
+                                                            verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                        if member.public_flags.spammer:
+                                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                        else:
+                                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                        embed.add_field(
+                                                            name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                            value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                            inline=False,
+                                                        )
+                                                        embed.set_author(
+                                                            name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                        )
+                                                        # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                                        embed.set_thumbnail(
+                                                            url=member.avatar.replace(
+                                                                size=1024)
+                                                        )
+                                                        embed.set_footer(
+                                                            text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                                        )
+                                                        try:
+                                                            await client.get_channel(
+                                                                int(logchanneldata[member.guild.id]["logchannel"])
+                                                            ).send(embed=embed)
+                                                        except:
+                                                            pass
+                                                    else:
+                                                        if member.guild.id in passbotsdata:
+                                                            if "rights" in passbotsdata[member.guild.id]:
+                                                                if member.id in passbotsdata[member.guild.id]["rights"]:
+                                                                    passbots.delete(member.guild.id, {"rights": member.id})
+                                                        embed = discord.Embed(
+                                                            description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`",
+                                                            color=0xCC1A1D,
+                                                        )
+                                                        if member.public_flags.http_interactions_bot:
+                                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                        else:
+                                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                        if member.public_flags.verified_bot:
+                                                            verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                        else:
+                                                            verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                        if member.public_flags.spammer:
+                                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                        else:
+                                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                        embed.add_field(
+                                                            name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                            value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                            inline=False,
+                                                        )
+                                                        embed.set_author(
+                                                            name=f"{get_language(member.guild.id, 'Пропуск')} {member} {get_language(member.guild.id, 'истек!')}",
+                                                            icon_url="https://cdn.discordapp.com/attachments/713751423128698950/861577473997537311/ticket.png",
+                                                        )
+                                                        embed.set_footer(
+                                                            text=f"ID: {member.id}")
+                                                        try:
+                                                            await client.get_channel(
+                                                                int(logchanneldata[member.guild.id]["logchannel"])
+                                                            ).send(embed=embed)
+                                                        except:
+                                                            pass
+                                                else:
+                                                    # await asyncio.sleep(2)
+                                                    await member.ban(
+                                                        reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                        delete_message_days=1,
+                                                    )
+                                                    # await asyncio.sleep(5)
+                                                    embed = discord.Embed(
+                                                        description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                        color=0xFCC21B,
+                                                    )
+                                                    if member.public_flags.http_interactions_bot:
+                                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                    else:
+                                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                    if member.public_flags.verified_bot:
+                                                        verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                    else:
+                                                        verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                    if member.public_flags.spammer:
+                                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                    else:
+                                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                    embed.add_field(
+                                                        name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                        value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                        inline=False,
+                                                    )
+                                                    embed.set_author(
+                                                        name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                    )
+                                                    # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                                    embed.set_thumbnail(
+                                                        url=member.avatar.replace(
+                                                            size=1024)
+                                                    )
+                                                    embed.set_footer(
+                                                        text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                                    )
+                                                    # try:
+                                                    await client.get_channel(
+                                                        int(logchanneldata[member.guild.id]["logchannel"])
+                                                    ).send(embed=embed)
+                                                    # except:
+                                                    #     pass
+                                            else:
+                                                # await asyncio.sleep(2)
+                                                print("-8")
+                                                await member.ban(
+                                                    reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                    delete_message_days=1,
+                                                )
+                                                # await asyncio.sleep(5)
+                                                embed = discord.Embed(
+                                                    description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                    color=0xFCC21B,
+                                                )
+                                                if member.public_flags.http_interactions_bot:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                else:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                if member.public_flags.verified_bot:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                else:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                if member.public_flags.spammer:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                else:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                embed.add_field(
+                                                    name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                    value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                    inline=False,
+                                                )
+                                                embed.set_author(
+                                                    name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                )
+                                                # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                                embed.set_thumbnail(
+                                                    url=member.avatar.replace(
+                                                        size=1024)
+                                                )
+                                                embed.set_footer(
+                                                    text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                                )
+                                                try:
+                                                    await client.get_channel(
+                                                        int(logchanneldata[member.guild.id]["logchannel"])
+                                                    ).send(embed=embed)
+                                                except:
+                                                    pass
+                                    else:
+                                        embed = discord.Embed(
+                                            description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`",
+                                            color=discord.Colour.blue(),
+                                        )
+                                        if member.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if member.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if member.public_flags.spammer:
+                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{member} {get_language(member.guild.id,'игнорируется на данном сервере!')}",
+                                            icon_url="https://cdn.discordapp.com/attachments/713751423128698950/904448009583100005/invisible1600.png",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=member.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[member.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
                                 else:
-                                    pss = ""
-                                if not str(member.id) in pss:
-                                    await member.ban(
-                                        reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
-                                        delete_message_days=1,
-                                    )
-                                    # await asyncio.sleep(5)
-                                    embed = discord.Embed(
-                                        description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Присоединился:')} <t:{int(member.joined_at.timestamp())}:F>\n{get_language(member.guild.id,'Создан:')} <t:{int(member.created_at.timestamp())}:F>",
-                                        color=0xFCC21B,
-                                    )
-                                    embed.set_author(
-                                        name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
-                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                                    )
-                                    # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
-                                    embed.set_thumbnail(
-                                        url=member.avatar.replace(size=1024)
-                                    )
-                                    embed.set_footer(
-                                        text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
-                                    )
-                                    try:
-                                        await client.get_channel(
-                                            int(lc[str(member.guild.id)])
-                                        ).send(embed=embed)
-                                    except:
-                                        pass
-                                else:
-                                    p = gdata("vega", "passbots")
-                                    p.update(
-                                        {
-                                            str(member.guild.id): p[
-                                                str(member.guild.id)
-                                            ].replace(str(f"<@!{member.id}>, "), "")
-                                        }
-                                    )
-                                    wdata("vega", "passbots", p)
-                                    embed = discord.Embed(
-                                        description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Присоединился:')} <t:{int(member.joined_at.timestamp())}:F>\n{get_language(member.guild.id,'Создан:')} <t:{int(member.created_at.timestamp())}:F>",
-                                        color=0xCC1A1D,
-                                    )
-                                    embed.set_author(
-                                        name=f"{get_language(member.guild.id, 'Пропуск')} {member} {get_language(member.guild.id, 'истек!')}",
-                                        icon_url="https://cdn.discordapp.com/attachments/713751423128698950/861577473997537311/ticket.png",
-                                    )
-                                    embed.set_footer(text=f"ID: {member.id}")
-                                    try:
-                                        await client.get_channel(
-                                            int(lc[str(member.guild.id)])
-                                        ).send(embed=embed)
-                                    except:
-                                        pass
-
-                        elif (
-                            not str(member.id) in w[str("Bots")]
-                            and str(member.id) in dop
-                        ):
+                                    if enabled_2:
+                                        if member.guild.id in passbotsdata:
+                                            if "rights" in passbotsdata[member.guild.id]:
+                                                if member.id not in passbotsdata[member.guild.id]["rights"]:
+                                                    # await asyncio.sleep(2)
+                                                    await member.ban(
+                                                        reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                        delete_message_days=1,
+                                                    )
+                                                    # await asyncio.sleep(5)
+                                                    embed = discord.Embed(
+                                                        description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                        color=0xFCC21B,
+                                                    )
+                                                    if member.public_flags.http_interactions_bot:
+                                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                    else:
+                                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                    if member.public_flags.verified_bot:
+                                                        verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                    else:
+                                                        verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                    if member.public_flags.spammer:
+                                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                    else:
+                                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                    embed.add_field(
+                                                        name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                        value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                        inline=False,
+                                                    )
+                                                    embed.set_author(
+                                                        name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                    )
+                                                    # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                                    embed.set_thumbnail(
+                                                        url=member.avatar.replace(
+                                                            size=1024)
+                                                    )
+                                                    embed.set_footer(
+                                                        text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                                    )
+                                                    try:
+                                                        await client.get_channel(
+                                                            int(logchanneldata[member.guild.id]["logchannel"])
+                                                        ).send(embed=embed)
+                                                    except:
+                                                        pass
+                                                else:
+                                                    if member.guild.id in passbotsdata:
+                                                        if "rights" in passbotsdata[member.guild.id]:
+                                                            if member.id in passbotsdata[member.guild.id]["rights"]:
+                                                                passbots.delete(member.guild.id, {"rights": member.id})
+                                                    embed = discord.Embed(
+                                                        description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`",
+                                                        color=0xCC1A1D,
+                                                    )
+                                                    if member.public_flags.http_interactions_bot:
+                                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                    else:
+                                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                    if member.public_flags.verified_bot:
+                                                        verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                    else:
+                                                        verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                    if member.public_flags.spammer:
+                                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                    else:
+                                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                    embed.add_field(
+                                                        name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                        value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                        inline=False,
+                                                    )
+                                                    embed.set_author(
+                                                        name=f"{get_language(member.guild.id, 'Пропуск')} {member} {get_language(member.guild.id, 'истек!')}",
+                                                        icon_url="https://cdn.discordapp.com/attachments/713751423128698950/861577473997537311/ticket.png",
+                                                    )
+                                                    embed.set_footer(
+                                                        text=f"ID: {member.id}")
+                                                    try:
+                                                        await client.get_channel(
+                                                            int(logchanneldata[member.guild.id]["logchannel"])
+                                                        ).send(embed=embed)
+                                                    except:
+                                                        pass
+                                            else:
+                                                # await asyncio.sleep(2)
+                                                await member.ban(
+                                                    reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                    delete_message_days=1,
+                                                )
+                                                # await asyncio.sleep(5)
+                                                embed = discord.Embed(
+                                                    description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                    color=0xFCC21B,
+                                                )
+                                                if member.public_flags.http_interactions_bot:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                else:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                if member.public_flags.verified_bot:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                else:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                if member.public_flags.spammer:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                else:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                embed.add_field(
+                                                    name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                    value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                    inline=False,
+                                                )
+                                                embed.set_author(
+                                                    name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                )
+                                                # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                                embed.set_thumbnail(
+                                                    url=member.avatar.replace(
+                                                        size=1024)
+                                                )
+                                                embed.set_footer(
+                                                    text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                                )
+                                                try:
+                                                    await client.get_channel(
+                                                        int(logchanneldata[member.guild.id]["logchannel"])
+                                                    ).send(embed=embed)
+                                                except:
+                                                    pass
+                                        else:
+                                            # await asyncio.sleep(2)
+                                            await member.ban(
+                                                reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                delete_message_days=1,
+                                            )
+                                            # await asyncio.sleep(5)
+                                            embed = discord.Embed(
+                                                description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                color=0xFCC21B,
+                                            )
+                                            if member.public_flags.http_interactions_bot:
+                                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                            else:
+                                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                            if member.public_flags.verified_bot:
+                                                verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                            else:
+                                                verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                            if member.public_flags.spammer:
+                                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                            else:
+                                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                            embed.add_field(
+                                                name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                inline=False,
+                                            )
+                                            embed.set_author(
+                                                name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                            )
+                                            # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                            embed.set_thumbnail(
+                                                url=member.avatar.replace(
+                                                    size=1024)
+                                            )
+                                            embed.set_footer(
+                                                text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                            )
+                                            try:
+                                                await client.get_channel(
+                                                    int(logchanneldata[member.guild.id]["logchannel"])
+                                                ).send(embed=embed)
+                                            except:
+                                                pass
+                            else:
+                                if enabled_2:
+                                    if member.guild.id in passbotsdata:
+                                        if "rights" in passbotsdata[member.guild.id]:
+                                            if member.id not in passbotsdata[member.guild.id]["rights"]:
+                                                # await asyncio.sleep(2)
+                                                await member.ban(
+                                                    reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                    delete_message_days=1,
+                                                )
+                                                # await asyncio.sleep(5)
+                                                embed = discord.Embed(
+                                                    description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                    color=0xFCC21B,
+                                                )
+                                                if member.public_flags.http_interactions_bot:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                else:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                if member.public_flags.verified_bot:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                else:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                if member.public_flags.spammer:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                else:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                embed.add_field(
+                                                    name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                    value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                    inline=False,
+                                                )
+                                                embed.set_author(
+                                                    name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                )
+                                                # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                                embed.set_thumbnail(
+                                                    url=member.avatar.replace(
+                                                        size=1024)
+                                                )
+                                                embed.set_footer(
+                                                    text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                                )
+                                                try:
+                                                    await client.get_channel(
+                                                        int(logchanneldata[member.guild.id]["logchannel"])
+                                                    ).send(embed=embed)
+                                                except:
+                                                    pass
+                                            else:
+                                                if member.guild.id in passbotsdata:
+                                                    if "rights" in passbotsdata[member.guild.id]:
+                                                        if member.id in passbotsdata[member.guild.id]["rights"]:
+                                                            passbots.delete(member.guild.id, {"rights": member.id})
+                                                embed = discord.Embed(
+                                                    description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`",
+                                                    color=0xCC1A1D,
+                                                )
+                                                if member.public_flags.http_interactions_bot:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                                else:
+                                                    http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                                if member.public_flags.verified_bot:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                else:
+                                                    verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                if member.public_flags.spammer:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                else:
+                                                    spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                embed.add_field(
+                                                    name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                    value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                    inline=False,
+                                                )
+                                                embed.set_author(
+                                                    name=f"{get_language(member.guild.id, 'Пропуск')} {member} {get_language(member.guild.id, 'истек!')}",
+                                                    icon_url="https://cdn.discordapp.com/attachments/713751423128698950/861577473997537311/ticket.png",
+                                                )
+                                                embed.set_footer(
+                                                    text=f"ID: {member.id}")
+                                                try:
+                                                    await client.get_channel(
+                                                        int(logchanneldata[member.guild.id]["logchannel"])
+                                                    ).send(embed=embed)
+                                                except:
+                                                    pass
+                                        else:
+                                            # await asyncio.sleep(2)
+                                            await member.ban(
+                                                reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                delete_message_days=1,
+                                            )
+                                            # await asyncio.sleep(5)
+                                            embed = discord.Embed(
+                                                description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                                color=0xFCC21B,
+                                            )
+                                            if member.public_flags.http_interactions_bot:
+                                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                            else:
+                                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                            if member.public_flags.verified_bot:
+                                                verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                            else:
+                                                verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                            if member.public_flags.spammer:
+                                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                            else:
+                                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                            embed.add_field(
+                                                name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                                inline=False,
+                                            )
+                                            embed.set_author(
+                                                name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                            )
+                                            # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                            embed.set_thumbnail(
+                                                url=member.avatar.replace(
+                                                    size=1024)
+                                            )
+                                            embed.set_footer(
+                                                text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                            )
+                                            try:
+                                                await client.get_channel(
+                                                    int(logchanneldata[member.guild.id]["logchannel"])
+                                                ).send(embed=embed)
+                                            except:
+                                                pass
+                                    else:
+                                        # await asyncio.sleep(2)
+                                        await member.ban(
+                                            reason=f"{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                            delete_message_days=1,
+                                        )
+                                        # await asyncio.sleep(5)
+                                        embed = discord.Embed(
+                                            description=f"{get_language(member.guild.id,'Видимо бота нет в белом списке или он не игнорируется.')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {member.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {member.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                                            color=0xFCC21B,
+                                        )
+                                        if member.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if member.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if member.public_flags.spammer:
+                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{member} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                                        embed.set_thumbnail(
+                                            url=member.avatar.replace(
+                                                size=1024)
+                                        )
+                                        embed.set_footer(
+                                            text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[member.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                        else:
                             embed = discord.Embed(
-                                description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Присоединился:')} <t:{int(member.joined_at.timestamp())}:F>\n{get_language(member.guild.id,'Создан:')} <t:{int(member.created_at.timestamp())}:F>",
-                                color=discord.Colour.blue(),
-                            )
-                            embed.set_author(
-                                name=f"{member} {get_language(member.guild.id,'игнорируется на данном сервере!')}",
-                                icon_url="https://cdn.discordapp.com/attachments/713751423128698950/904448009583100005/invisible1600.png",
-                            )
-                            embed.set_thumbnail(url=member.avatar.replace(size=1024))
-                            embed.set_footer(
-                                text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
-                            )
-                            try:
-                                await client.get_channel(
-                                    int(lc[str(member.guild.id)])
-                                ).send(embed=embed)
-                            except:
-                                pass
-                        elif str(member.id) in w[str("Bots")]:
-                            embed = discord.Embed(
-                                description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Присоединился:')} <t:{int(member.joined_at.timestamp())}:F>\n{get_language(member.guild.id,'Создан:')} <t:{int(member.created_at.timestamp())}:F>",
+                                description=f"<:arrow:847308468091879434> **{get_language(member.guild.id,'Пригласил бота:')}** {entry.user}\nㅤ **ID:** `{entry.user.id}`",
                                 color=discord.Colour.green(),
+                            )
+                            if member.public_flags.http_interactions_bot:
+                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                            else:
+                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                            if member.public_flags.verified_bot:
+                                verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                            else:
+                                verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                            if member.public_flags.spammer:
+                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                            else:
+                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                            embed.add_field(
+                                name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                                inline=False,
                             )
                             embed.set_author(
                                 name=f"{member} {get_language(member.guild.id,'находится в белом списке!')}",
                                 icon_url="https://cdn.discordapp.com/attachments/713751423128698950/904452846664183858/wl_bots.png",
                             )
-                            embed.set_thumbnail(url=member.avatar.replace(size=1024))
+                            embed.set_thumbnail(
+                                url=member.avatar.replace(size=1024))
                             embed.set_footer(
                                 text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
                             )
                             try:
                                 await client.get_channel(
-                                    int(lc[str(member.guild.id)])
+                                    int(logchanneldata[member.guild.id]["logchannel"])
                                 ).send(embed=embed)
                             except:
                                 pass
-                except:
-                    pass
-
+                else:
+                    async for entry in member.guild.audit_logs(
+                        limit=1, action=discord.AuditLogAction.bot_add
+                    ):
+                        await member.ban(
+                            reason=f"{get_language(member.guild.id,'[HARD-AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                            delete_message_days=1,
+                        )
+                        # await asyncio.sleep(5)
+                        embed = discord.Embed(
+                            description=f"**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[HARD-AntiBot]ㅤПригласил бота:')} {entry.user}ㅤ(ID: {entry.user.id})",
+                            color=0xFCC21B,
+                        )
+                        if member.public_flags.http_interactions_bot:
+                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                        else:
+                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                        if member.public_flags.verified_bot:
+                            verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                        else:
+                            verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                        if member.public_flags.spammer:
+                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                        else:
+                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                        embed.add_field(
+                            name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                            value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(member.joined_at.timestamp())}:D> *(<t:{int(member.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(member.created_at.timestamp())}:D> *(<t:{int(member.created_at.timestamp())}:R>)*",
+                            inline=False,
+                        )
+                        embed.set_author(
+                            name=f"{member} {get_language(member.guild.id,'был забанен функцией HARD-AntiBot')}",
+                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                        )
+                        # embed.add_field(name='<:arrow:847308468091879434> Приглашал бота:', value=f'{entry.user.mention}\n{entry.user}', inline=False)
+                        embed.set_thumbnail(
+                            url=member.avatar.replace(size=1024)
+                        )
+                        embed.set_footer(
+                            text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                        )
+                        try:
+                            await client.get_channel(
+                                int(logchanneldata[member.guild.id]["logchannel"])
+                            ).send(embed=embed)
+                        except:
+                            pass
+            except:
+                pass
 
 # Удаление канала
 @client.event
 async def on_guild_channel_delete(channel):
-    wl = gdata("vega", "ignorebots")
-    if str(channel.guild.id) in wl:
-        dop = wl[str(channel.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -3877,97 +1521,670 @@ async def on_guild_channel_delete(channel):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(channel.guild.id)]
+            enabled = antibotdata[channel.guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
             async for entry in channel.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.channel_delete
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != channel.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}\n\n**{get_language(channel.guild.id,'Информация о боте:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(
-                                int(lc[str(channel.guild.id)])
-                            ).send(embed=embed)
-                        except:
-                            pass
-                    except:
-                        pass
-
-                    if isinstance(channel, discord.CategoryChannel):
-                        await channel.clone()
-                    elif not channel.category:
-                        await channel.clone()
-                    else:
-                        if isinstance(channel, discord.TextChannel):
-                            await channel.guild.create_text_channel(
-                                category=get(
-                                    channel.guild.categories, name=channel.category.name
-                                ),
-                                name=channel.name,
-                                topic=channel.topic,
-                                nsfw=channel.nsfw,
-                                overwrites=channel.overwrites,
-                                position=channel.position,
-                                slowmode_delay=channel.slowmode_delay,
-                            )
+                    if channel.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[channel.guild.id]:
+                            if entry.user.id not in ignorebotsdata[channel.guild.id]["rights"]:
+                                vega = client.get_guild(channel.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        if isinstance(channel, discord.CategoryChannel):
+                                            await channel.clone(
+                                                name=None,
+                                                reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                            )
+                                        elif not channel.category:
+                                            await channel.clone(
+                                                name=None,
+                                                reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                            )
+                                        else:
+                                            if isinstance(channel, discord.TextChannel):
+                                                await channel.guild.create_text_channel(
+                                                    category=get(
+                                                        channel.guild.categories,
+                                                        name=channel.category.name,
+                                                    ),
+                                                    name=channel.name,
+                                                    topic=channel.topic,
+                                                    nsfw=channel.nsfw,
+                                                    overwrites=channel.overwrites,
+                                                    position=channel.position,
+                                                    slowmode_delay=channel.slowmode_delay,
+                                                )
+                                            elif isinstance(channel, discord.VoiceChannel):
+                                                await channel.guild.create_voice_channel(
+                                                    category=get(
+                                                        channel.guild.categories,
+                                                        name=channel.category.name,
+                                                    ),
+                                                    name=channel.name,
+                                                    bitrate=channel.bitrate,
+                                                    overwrites=channel.overwrites,
+                                                    position=channel.position,
+                                                    user_limit=channel.user_limit,
+                                                )
+                                            await channel.edit(
+                                                category=get(
+                                                    channel.guild.categories, name=channel.category.name
+                                                )
+                                            )
+                                except:
+                                    if isinstance(channel, discord.CategoryChannel):
+                                        await channel.clone(
+                                            name=None,
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                        )
+                                    elif not channel.category:
+                                        await channel.clone(
+                                            name=None,
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                        )
+                                    else:
+                                        if isinstance(channel, discord.TextChannel):
+                                            await channel.guild.create_text_channel(
+                                                category=get(
+                                                    channel.guild.categories,
+                                                    name=channel.category.name,
+                                                ),
+                                                name=channel.name,
+                                                topic=channel.topic,
+                                                nsfw=channel.nsfw,
+                                                overwrites=channel.overwrites,
+                                                position=channel.position,
+                                                slowmode_delay=channel.slowmode_delay,
+                                            )
+                                        elif isinstance(channel, discord.VoiceChannel):
+                                            await channel.guild.create_voice_channel(
+                                                category=get(
+                                                    channel.guild.categories,
+                                                    name=channel.category.name,
+                                                ),
+                                                name=channel.name,
+                                                bitrate=channel.bitrate,
+                                                overwrites=channel.overwrites,
+                                                position=channel.position,
+                                                user_limit=channel.user_limit,
+                                            )
+                                        await channel.edit(
+                                            category=get(
+                                                channel.guild.categories, name=channel.category.name
+                                            )
+                                        )
+                                if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[channel.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
                         else:
-                            await channel.guild.create_voice_channel(
-                                category=get(
-                                    channel.guild.categories, name=channel.category.name
-                                ),
-                                name=channel.name,
-                                bitrate=channel.bitrate,
-                                overwrites=channel.overwrites,
-                                position=channel.position,
-                                user_limit=channel.user_limit,
-                            )
-                        await asyncio.sleep(5)
-                        await channel.edit(
-                            category=get(
-                                channel.guild.categories, name=channel.category.name
-                            )
-                        )
+                            vega = client.get_guild(channel.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    if isinstance(channel, discord.CategoryChannel):
+                                        await channel.clone(
+                                            name=None,
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                        )
+                                    elif not channel.category:
+                                        await channel.clone(
+                                            name=None,
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                        )
+                                    else:
+                                        if isinstance(channel, discord.TextChannel):
+                                            await channel.guild.create_text_channel(
+                                                category=get(
+                                                    channel.guild.categories,
+                                                    name=channel.category.name,
+                                                ),
+                                                name=channel.name,
+                                                topic=channel.topic,
+                                                nsfw=channel.nsfw,
+                                                overwrites=channel.overwrites,
+                                                position=channel.position,
+                                                slowmode_delay=channel.slowmode_delay,
+                                            )
+                                        elif isinstance(channel, discord.VoiceChannel):
+                                            await channel.guild.create_voice_channel(
+                                                category=get(
+                                                    channel.guild.categories,
+                                                    name=channel.category.name,
+                                                ),
+                                                name=channel.name,
+                                                bitrate=channel.bitrate,
+                                                overwrites=channel.overwrites,
+                                                position=channel.position,
+                                                user_limit=channel.user_limit,
+                                            )
+                                        await channel.edit(
+                                            category=get(
+                                                channel.guild.categories, name=channel.category.name
+                                            )
+                                        )
+                            except:
+                                if isinstance(channel, discord.CategoryChannel):
+                                    await channel.clone(
+                                        name=None,
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                    )
+                                elif not channel.category:
+                                    await channel.clone(
+                                        name=None,
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                    )
+                                else:
+                                    if isinstance(channel, discord.TextChannel):
+                                        await channel.guild.create_text_channel(
+                                            category=get(
+                                                channel.guild.categories,
+                                                name=channel.category.name,
+                                            ),
+                                            name=channel.name,
+                                            topic=channel.topic,
+                                            nsfw=channel.nsfw,
+                                            overwrites=channel.overwrites,
+                                            position=channel.position,
+                                            slowmode_delay=channel.slowmode_delay,
+                                        )
+                                    elif isinstance(channel, discord.VoiceChannel):
+                                        await channel.guild.create_voice_channel(
+                                            category=get(
+                                                channel.guild.categories,
+                                                name=channel.category.name,
+                                            ),
+                                            name=channel.name,
+                                            bitrate=channel.bitrate,
+                                            overwrites=channel.overwrites,
+                                            position=channel.position,
+                                            user_limit=channel.user_limit,
+                                        )
+                                    await channel.edit(
+                                        category=get(
+                                            channel.guild.categories, name=channel.category.name
+                                        )
+                                    )
+                            if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[channel.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(channel.guild.id).me
+                        try:
+                            if vega.top_role >= entry.user.top_role:
+                                if isinstance(channel, discord.CategoryChannel):
+                                    await channel.clone(
+                                        name=None,
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                    )
+                                elif not channel.category:
+                                    await channel.clone(
+                                        name=None,
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                    )
+                                else:
+                                    if isinstance(channel, discord.TextChannel):
+                                        await channel.guild.create_text_channel(
+                                            category=get(
+                                                channel.guild.categories,
+                                                name=channel.category.name,
+                                            ),
+                                            name=channel.name,
+                                            topic=channel.topic,
+                                            nsfw=channel.nsfw,
+                                            overwrites=channel.overwrites,
+                                            position=channel.position,
+                                            slowmode_delay=channel.slowmode_delay,
+                                        )
+                                    elif isinstance(channel, discord.VoiceChannel):
+                                        await channel.guild.create_voice_channel(
+                                            category=get(
+                                                channel.guild.categories,
+                                                name=channel.category.name,
+                                            ),
+                                            name=channel.name,
+                                            bitrate=channel.bitrate,
+                                            overwrites=channel.overwrites,
+                                            position=channel.position,
+                                            user_limit=channel.user_limit,
+                                        )
+                                    await channel.edit(
+                                        category=get(
+                                            channel.guild.categories, name=channel.category.name
+                                        )
+                                    )
+                        except:
+                            if isinstance(channel, discord.CategoryChannel):
+                                await channel.clone(
+                                    name=None,
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                )
+                            elif not channel.category:
+                                await channel.clone(
+                                    name=None,
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                )
+                            else:
+                                if isinstance(channel, discord.TextChannel):
+                                    await channel.guild.create_text_channel(
+                                        category=get(
+                                            channel.guild.categories,
+                                            name=channel.category.name,
+                                        ),
+                                        name=channel.name,
+                                        topic=channel.topic,
+                                        nsfw=channel.nsfw,
+                                        overwrites=channel.overwrites,
+                                        position=channel.position,
+                                        slowmode_delay=channel.slowmode_delay,
+                                    )
+                                elif isinstance(channel, discord.VoiceChannel):
+                                    await channel.guild.create_voice_channel(
+                                        category=get(
+                                            channel.guild.categories,
+                                            name=channel.category.name,
+                                        ),
+                                        name=channel.name,
+                                        bitrate=channel.bitrate,
+                                        overwrites=channel.overwrites,
+                                        position=channel.position,
+                                        user_limit=channel.user_limit,
+                                    )
+                                await channel.edit(
+                                    category=get(
+                                        channel.guild.categories, name=channel.category.name
+                                    )
+                                )
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление каналов!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
         except:
             pass
 
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[channel.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[channel.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in channel.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.channel_delete
+            ):
+                if (
+                    entry.user != channel.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    vega = client.get_guild(channel.guild.id).me
+                    try:
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                with open('json/msg_appeal.json', 'r') as f:
+                                    ma = json.load(f)
+                                text = ma[str(channel.guild.id)]["appeal"]
+                                embed = discord.Embed(
+                                    title=f"{get_language(channel.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                    color=0xFF2B2B,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'На сервере:')}",
+                                    value=f"{channel.guild.name}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'Модератором:')}",
+                                    value=f"VEGA ⦡#7724",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'По причине:')}",
+                                    value=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}\n`{get_language(channel.guild.id,'Редактирование сервера запрещено!')}`",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'Владелец сервера:')}",
+                                    value=f"{channel.guild.owner}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'Апелляция:')}",
+                                    value=f"{text}",
+                                    inline=False,
+                                )
+                                await entry.user.send(embed=embed)
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}\n\n**{get_language(channel.guild.id,'Информация об участнике:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                    color=0xFCC21B,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiCrash')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID участника:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                            except:
+                                pass
+                        if vega.top_role >= entry.user.top_role:
+                            if isinstance(channel, discord.CategoryChannel):
+                                await channel.clone(
+                                    name=None,
+                                    reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}",
+                                )
+                                return
+                            elif not channel.category:
+                                await channel.clone(
+                                    name=None,
+                                    reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}",
+                                )
+                                return
+                            else:
+                                if isinstance(channel, discord.TextChannel):
+                                    await channel.guild.create_text_channel(
+                                        category=get(
+                                            channel.guild.categories,
+                                            name=channel.category.name,
+                                        ),
+                                        name=channel.name,
+                                        topic=channel.topic,
+                                        nsfw=channel.nsfw,
+                                        overwrites=channel.overwrites,
+                                        position=channel.position,
+                                        slowmode_delay=channel.slowmode_delay,
+                                    )
+                                    return
+                                elif isinstance(channel, discord.VoiceChannel):
+                                    await channel.guild.create_voice_channel(
+                                        category=get(
+                                            channel.guild.categories,
+                                            name=channel.category.name,
+                                        ),
+                                        name=channel.name,
+                                        bitrate=channel.bitrate,
+                                        overwrites=channel.overwrites,
+                                        position=channel.position,
+                                        user_limit=channel.user_limit,
+                                    )
+                                    return
+                                await channel.edit(
+                                    category=get(
+                                        channel.guild.categories, name=channel.category.name
+                                    )
+                                )
+                                return
+                    except:
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                with open('json/msg_appeal.json', 'r') as f:
+                                    ma = json.load(f)
+                                text = ma[str(channel.guild.id)]["appeal"]
+                                embed = discord.Embed(
+                                    title=f"{get_language(channel.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                    color=0xFF2B2B,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'На сервере:')}",
+                                    value=f"{channel.guild.name}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'Модератором:')}",
+                                    value=f"VEGA ⦡#7724",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'По причине:')}",
+                                    value=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}\n`{get_language(channel.guild.id,'Редактирование сервера запрещено!')}`",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'Владелец сервера:')}",
+                                    value=f"{channel.guild.owner}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(channel.guild.id,'Апелляция:')}",
+                                    value=f"{text}",
+                                    inline=False,
+                                )
+                                await entry.user.send(embed=embed)
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}\n\n**{get_language(channel.guild.id,'Информация об участнике:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                    color=0xFCC21B,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiCrash')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID участника:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                            except:
+                                pass
+                        if isinstance(channel, discord.CategoryChannel):
+                            await channel.clone(
+                                name=None,
+                                reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}",
+                            )
+                            return
+                        elif not channel.category:
+                            await channel.clone(
+                                name=None,
+                                reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление каналов!')}",
+                            )
+                            return
+                        else:
+                            if isinstance(channel, discord.TextChannel):
+                                await channel.guild.create_text_channel(
+                                    category=get(
+                                        channel.guild.categories,
+                                        name=channel.category.name,
+                                    ),
+                                    name=channel.name,
+                                    topic=channel.topic,
+                                    nsfw=channel.nsfw,
+                                    overwrites=channel.overwrites,
+                                    position=channel.position,
+                                    slowmode_delay=channel.slowmode_delay,
+                                )
+                                return
+                            elif isinstance(channel, discord.VoiceChannel):
+                                await channel.guild.create_voice_channel(
+                                    category=get(
+                                        channel.guild.categories,
+                                        name=channel.category.name,
+                                    ),
+                                    name=channel.name,
+                                    bitrate=channel.bitrate,
+                                    overwrites=channel.overwrites,
+                                    position=channel.position,
+                                    user_limit=channel.user_limit,
+                                )
+                                return
+                            await channel.edit(
+                                category=get(
+                                    channel.guild.categories, name=channel.category.name
+                                )
+                            )
+                            return
+        except:
+            pass
 
 # Создание канала
 @client.event
 async def on_guild_channel_create(channel):
-    wl = gdata("vega", "ignorebots")
-    if str(channel.guild.id) in wl:
-        dop = wl[str(channel.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -3975,50 +2192,767 @@ async def on_guild_channel_create(channel):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(channel.guild.id)]
+            enabled = antibotdata[channel.guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
             async for entry in channel.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.channel_create
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != channel.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}\n\n**{get_language(channel.guild.id,'Информация о боте:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
-                        )
+                    if channel.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[channel.guild.id]:
+                            if not entry.user.id in ignorebotsdata[channel.guild.id]["rights"]:
+                                vega = client.get_guild(channel.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await channel.delete(
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                        )
+                                except:
+                                    await channel.delete(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                    )
+                                if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[channel.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(channel.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await channel.delete(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                    )
+                            except:
+                                await channel.delete(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                )
+                            if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[channel.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(channel.guild.id).me
                         try:
-                            await client.get_channel(
-                                int(lc[str(channel.guild.id)])
-                            ).send(embed=embed)
+                            if vega.top_role >= entry.user.top_role:
+                                await channel.delete(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                )
+                        except:
+                            await channel.delete(
+                                reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                            )
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Создание каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание каналов!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+        except:
+            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[channel.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[channel.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in channel.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.channel_create
+            ):
+                if (
+                    entry.user != channel.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    vega = client.get_guild(channel.guild.id).me
+                    try:
+                        if vega.top_role >= entry.user.top_role:
+                            await channel.delete(
+                                reason=f"{get_language(channel.guild.id,'[AntiCrash] Создание каналов!')}",
+                            )
+                    except:
+                        await channel.delete(
+                            reason=f"{get_language(channel.guild.id,'[AntiCrash] Создание каналов!')}",
+                        )
+                    if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            with open('json/msg_appeal.json', 'r') as f:
+                                ma = json.load(f)
+                            text = ma[str(channel.guild.id)]["appeal"]
+                            embed = discord.Embed(
+                                title=f"{get_language(channel.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                color=0xFF2B2B,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(channel.guild.id,'На сервере:')}",
+                                value=f"{channel.guild.name}",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(channel.guild.id,'Модератором:')}",
+                                value=f"VEGA ⦡#7724",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(channel.guild.id,'По причине:')}",
+                                value=f"{get_language(channel.guild.id,'[AntiCrash] Создание каналов!')}\n`{get_language(channel.guild.id,'Редактирование сервера запрещено!')}`",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(channel.guild.id,'Владелец сервера:')}",
+                                value=f"{channel.guild.owner}",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(channel.guild.id,'Апелляция:')}",
+                                value=f"{text}",
+                                inline=False,
+                            )
+                            try:
+                                await entry.user.send(embed=embed)
+                            except:
+                                pass
+
+                            await entry.user.ban(
+                                reason=f"{get_language(channel.guild.id,'[AntiCrash] Создание каналов!')} {get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiCrash] Создание каналов!')}\n\n**{get_language(channel.guild.id,'Информация об участнике:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                color=0xFCC21B,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiCrash')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(channel.guild.id,'ID участника:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(
+                                    int(logchanneldata[channel.guild.id]["logchannel"])
+                                ).send(embed=embed)
+                            except:
+                                pass
+                            return
                         except:
                             pass
+        except:
+            pass
+
+# Обновление канала
+@client.event
+async def on_guild_channel_update(before, after):
+    try:
+        enabled = deactivatedata[0]["Option"]
+    except KeyError:
+        enabled = False
+    if enabled:
+        pass
+    else:
+        # Антибот
+        try:
+            enabled = antibotdata[after.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            async for entry in after.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.channel_update
+            ):
+                
+                if (
+                    not entry.user.id in wlbotsdata[0]["Bots"]
+                    and entry.user != after.guild.owner
+                    and enabled
+                    and entry.user.bot
+                ):
+                    if after.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[after.guild.id]:
+                            if not entry.user.id in ignorebotsdata[after.guild.id]["rights"]:
+                                vega = client.get_guild(after.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        if isinstance(after, discord.TextChannel):
+                                            # await after.guild.update(
+                                            await after.edit(
+                                                name=before.name,
+                                                type=before.type,
+                                                position=before.position,
+                                                nsfw=before.nsfw,
+                                                slowmode_delay=before.slowmode_delay,
+                                                overwrites=before.overwrites,
+                                                topic=before.topic,
+                                                default_auto_archive_duration=before.default_auto_archive_duration,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                            )
+                                        else:
+                                            if isinstance(after, discord.VoiceChannel):
+                                                await after.edit(
+                                                    name=before.name,
+                                                    type=before.type,
+                                                    position=before.position,
+                                                    overwrites=before.overwrites,
+                                                    bitrate=before.bitrate,
+                                                    rtc_region=before.rtc_region,
+                                                    video_quality_mode=before.video_quality_mode,
+                                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                                )
+                                except:
+                                    if isinstance(after, discord.TextChannel):
+                                        # await after.guild.update(
+                                        await after.edit(
+                                            name=before.name,
+                                            type=before.type,
+                                            position=before.position,
+                                            nsfw=before.nsfw,
+                                            slowmode_delay=before.slowmode_delay,
+                                            overwrites=before.overwrites,
+                                            topic=before.topic,
+                                            default_auto_archive_duration=before.default_auto_archive_duration,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                        )
+                                    else:
+                                        if isinstance(after, discord.VoiceChannel):
+                                            await after.edit(
+                                                name=before.name,
+                                                type=before.type,
+                                                position=before.position,
+                                                overwrites=before.overwrites,
+                                                bitrate=before.bitrate,
+                                                rtc_region=before.rtc_region,
+                                                video_quality_mode=before.video_quality_mode,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                            )
+                                if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                                embed=embed
+                                            )
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(after.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    if isinstance(after, discord.TextChannel):
+                                        # await after.guild.update(
+                                        await after.edit(
+                                            name=before.name,
+                                            type=before.type,
+                                            position=before.position,
+                                            nsfw=before.nsfw,
+                                            slowmode_delay=before.slowmode_delay,
+                                            overwrites=before.overwrites,
+                                            topic=before.topic,
+                                            default_auto_archive_duration=before.default_auto_archive_duration,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                        )
+                                    else:
+                                        if isinstance(after, discord.VoiceChannel):
+                                            await after.edit(
+                                                name=before.name,
+                                                type=before.type,
+                                                position=before.position,
+                                                overwrites=before.overwrites,
+                                                bitrate=before.bitrate,
+                                                rtc_region=before.rtc_region,
+                                                video_quality_mode=before.video_quality_mode,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                            )
+                            except:
+                                if isinstance(after, discord.TextChannel):
+                                    # await after.guild.update(
+                                    await after.edit(
+                                        name=before.name,
+                                        type=before.type,
+                                        position=before.position,
+                                        nsfw=before.nsfw,
+                                        slowmode_delay=before.slowmode_delay,
+                                        overwrites=before.overwrites,
+                                        topic=before.topic,
+                                        default_auto_archive_duration=before.default_auto_archive_duration,
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                    )
+                                else:
+                                    if isinstance(after, discord.VoiceChannel):
+                                        await after.edit(
+                                            name=before.name,
+                                            type=before.type,
+                                            position=before.position,
+                                            overwrites=before.overwrites,
+                                            bitrate=before.bitrate,
+                                            rtc_region=before.rtc_region,
+                                            video_quality_mode=before.video_quality_mode,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                        )
+                            if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(after.guild.id).me
+                        try:
+                            if vega.top_role >= entry.user.top_role:
+                                if isinstance(after, discord.TextChannel):
+                                    # await after.guild.update(
+                                    await after.edit(
+                                        name=before.name,
+                                        type=before.type,
+                                        position=before.position,
+                                        nsfw=before.nsfw,
+                                        slowmode_delay=before.slowmode_delay,
+                                        overwrites=before.overwrites,
+                                        topic=before.topic,
+                                        default_auto_archive_duration=before.default_auto_archive_duration,
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                    )
+                                else:
+                                    if isinstance(after, discord.VoiceChannel):
+                                        await after.edit(
+                                            name=before.name,
+                                            type=before.type,
+                                            position=before.position,
+                                            overwrites=before.overwrites,
+                                            bitrate=before.bitrate,
+                                            rtc_region=before.rtc_region,
+                                            video_quality_mode=before.video_quality_mode,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                        )
+                        except:
+                            if isinstance(after, discord.TextChannel):
+                                # await after.guild.update(
+                                await after.edit(
+                                    name=before.name,
+                                    type=before.type,
+                                    position=before.position,
+                                    nsfw=before.nsfw,
+                                    slowmode_delay=before.slowmode_delay,
+                                    overwrites=before.overwrites,
+                                    topic=before.topic,
+                                    default_auto_archive_duration=before.default_auto_archive_duration,
+                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                )
+                            else:
+                                if isinstance(after, discord.VoiceChannel):
+                                    await after.edit(
+                                        name=before.name,
+                                        type=before.type,
+                                        position=before.position,
+                                        overwrites=before.overwrites,
+                                        bitrate=before.bitrate,
+                                        rtc_region=before.rtc_region,
+                                        video_quality_mode=before.video_quality_mode,
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                    )
+                        if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление каналов!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление каналов!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+        except:
+            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[after.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[after.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in after.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.channel_update
+            ):
+                if (
+                    entry.user != after.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    vega = client.get_guild(after.guild.id).me
+                    try:
+                        if vega.top_role >= entry.user.top_role:
+                            if isinstance(after, discord.TextChannel):
+                                # await after.guild.update(
+                                await after.edit(
+                                    name=before.name,
+                                    type=before.type,
+                                    position=before.position,
+                                    nsfw=before.nsfw,
+                                    slowmode_delay=before.slowmode_delay,
+                                    overwrites=before.overwrites,
+                                    topic=before.topic,
+                                    default_auto_archive_duration=before.default_auto_archive_duration,
+                                    reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')}",
+                                )
+                            else:
+                                if isinstance(after, discord.VoiceChannel):
+                                    await after.edit(
+                                        name=before.name,
+                                        type=before.type,
+                                        position=before.position,
+                                        overwrites=before.overwrites,
+                                        bitrate=before.bitrate,
+                                        rtc_region=before.rtc_region,
+                                        video_quality_mode=before.video_quality_mode,
+                                        reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')}",
+                                    )
                     except:
-                        pass
-                    await channel.delete()
+                        if isinstance(after, discord.TextChannel):
+                            # await after.guild.update(
+                            await after.edit(
+                                name=before.name,
+                                type=before.type,
+                                position=before.position,
+                                nsfw=before.nsfw,
+                                slowmode_delay=before.slowmode_delay,
+                                overwrites=before.overwrites,
+                                topic=before.topic,
+                                default_auto_archive_duration=before.default_auto_archive_duration,
+                                reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')}",
+                            )
+                        else:
+                            if isinstance(after, discord.VoiceChannel):
+                                await after.edit(
+                                    name=before.name,
+                                    type=before.type,
+                                    position=before.position,
+                                    overwrites=before.overwrites,
+                                    bitrate=before.bitrate,
+                                    rtc_region=before.rtc_region,
+                                    video_quality_mode=before.video_quality_mode,
+                                    reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')}",
+                                )
+                    if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            with open('json/msg_appeal.json', 'r') as f:
+                                ma = json.load(f)
+                            text = ma[str(after.guild.id)]["appeal"]
+                            embed = discord.Embed(
+                                title=f"{get_language(after.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                color=0xFF2B2B,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.guild.id,'На сервере:')}",
+                                value=f"{after.guild.name}",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.guild.id,'Модератором:')}",
+                                value=f"VEGA ⦡#7724",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.guild.id,'По причине:')}",
+                                value=f"{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')}\n`{get_language(after.guild.id,'Редактирование сервера запрещено!')}`",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.guild.id,'Владелец сервера:')}",
+                                value=f"{after.guild.owner}",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.guild.id,'Апелляция:')}",
+                                value=f"{text}",
+                                inline=False,
+                            )
+                            await entry.user.send(embed=embed)
+                            await entry.user.ban(
+                                reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')} {get_language(after.guild.id,'Подозрительные действия со стороны участника!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(after.guild.id,'Подозрительные действия со стороны участника!')}\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiCrash] Обновление каналов!')}\n\n**{get_language(after.guild.id,'Информация об участнике:')}**\n{get_language(after.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                color=0xFCC21B,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiCrash')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(after.guild.id,'ID участника:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(
+                                    int(logchanneldata[after.guild.id]["logchannel"])
+                                ).send(embed=embed)
+                            except:
+                                pass
+                            return
+                        except:
+                            pass
         except:
             pass
 
@@ -4026,11 +2960,6 @@ async def on_guild_channel_create(channel):
 # Удаление роли
 @client.event
 async def on_guild_role_delete(role):
-    wl = gdata("vega", "ignorebots")
-    if str(role.guild.id) in wl:
-        dop = wl[str(role.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4038,61 +2967,344 @@ async def on_guild_role_delete(role):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(role.guild.id)]
+            enabled = antibotdata[role.guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
             async for entry in role.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.role_delete
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != role.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
+                ):
+                    if role.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[role.guild.id]:
+                            if entry.user.id not in ignorebotsdata[role.guild.id]["rights"]:
+                                if not role.managed:
+                                    vega = client.get_guild(role.guild.id).me
+                                    try:
+                                        if vega.top_role >= entry.user.top_role:
+                                            await role.guild.create_role(
+                                                name=role.name,
+                                                permissions=role.permissions,
+                                                colour=role.colour,
+                                                hoist=role.hoist,
+                                                mentionable=role.mentionable,
+                                                reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                            )
+                                    except:
+                                        await role.guild.create_role(
+                                            name=role.name,
+                                            permissions=role.permissions,
+                                            colour=role.colour,
+                                            hoist=role.hoist,
+                                            mentionable=role.mentionable,
+                                            reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                        )
+                                    if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
+                                        try:
+                                            await entry.user.ban(
+                                                reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
+                                                delete_message_days=1,
+                                            )
+                                            
+                                            embed = discord.Embed(
+                                                description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                                color=0xFCC21B,
+                                            )
+                                            if entry.user.public_flags.http_interactions_bot:
+                                                http_interactions_bot_bot = f"{get_language(role.guild.id,'Использует только HTTP взаимодействия')}"
+                                            else:
+                                                http_interactions_bot_bot = f"{get_language(role.guild.id,'Не использует HTTP взаимодействия')}"
+                                            if entry.user.public_flags.verified_bot:
+                                                verification_bot = f"{get_language(role.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                            else:
+                                                verification_bot = f"{get_language(role.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                            if entry.user.public_flags.spammer:
+                                                spamm_bot = f"{get_language(role.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                            else:
+                                                spamm_bot = f"{get_language(role.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                            embed.add_field(
+                                                name=f":information_source: {get_language(role.guild.id,'Информация о боте:')}",
+                                                value=f"{http_interactions_bot_bot}\n**{get_language(role.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(role.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(role.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(role.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                                inline=False,
+                                            )
+                                            embed.set_author(
+                                                name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
+                                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                            )
+                                            embed.set_thumbnail(
+                                                url=entry.user.avatar.replace(size=1024)
+                                            )
+                                            embed.set_footer(
+                                                text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
+                                            )
+                                            try:
+                                                await client.get_channel(
+                                                    int(logchanneldata[role.guild.id]["logchannel"])
+                                                ).send(embed=embed)
+                                            except:
+                                                pass
+                                            return
+                                        except:
+                                            pass
+                                else:
+                                    print(f"[ ИНФО ] Роль {role} интегрирована.")
+                        else:
+                            if not role.managed:
+                                vega = client.get_guild(role.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await role.guild.create_role(
+                                            name=role.name,
+                                            permissions=role.permissions,
+                                            colour=role.colour,
+                                            hoist=role.hoist,
+                                            mentionable=role.mentionable,
+                                            reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                        )
+                                except:
+                                    await role.guild.create_role(
+                                        name=role.name,
+                                        permissions=role.permissions,
+                                        colour=role.colour,
+                                        hoist=role.hoist,
+                                        mentionable=role.mentionable,
+                                        reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                    )
+                                if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(role.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(role.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(role.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(role.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(role.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(role.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(role.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(role.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(role.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(role.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(role.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024)
+                                        )
+                                        embed.set_footer(
+                                            text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[role.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                            else:
+                                print(f"[ ИНФО ] Роль {role} интегрирована.")
+                    else:
+                        if not role.managed:
+                            vega = client.get_guild(role.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await role.guild.create_role(
+                                        name=role.name,
+                                        permissions=role.permissions,
+                                        colour=role.colour,
+                                        hoist=role.hoist,
+                                        mentionable=role.mentionable,
+                                        reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                    )
+                            except:
+                                await role.guild.create_role(
+                                    name=role.name,
+                                    permissions=role.permissions,
+                                    colour=role.colour,
+                                    hoist=role.hoist,
+                                    mentionable=role.mentionable,
+                                    reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                )
+                            if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(role.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(role.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(role.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(role.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(role.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(role.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(role.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(role.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(role.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(role.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(role.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024)
+                                    )
+                                    embed.set_footer(
+                                        text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[role.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                        else:
+                            print(f"[ ИНФО ] Роль {role} интегрирована.")
+        except:
+            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[role.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[role.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in role.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.role_delete
+            ):
+                if (
+                    entry.user != role.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
                 ):
                     if not role.managed:
+                        vega = client.get_guild(role.guild.id).me
                         try:
-                            await entry.user.ban(
-                                reason=f"{get_language(role.guild.id,'[AntiBot] Удаление ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
-                                delete_message_days=1,
+                            if vega.top_role >= entry.user.top_role:
+                                await role.guild.create_role(
+                                    name=role.name,
+                                    permissions=role.permissions,
+                                    colour=role.colour,
+                                    hoist=role.hoist,
+                                    mentionable=role.mentionable,
+                                    reason=f"{get_language(role.guild.id,'[AntiCrash] Удаление ролей!')}",
+                                )
+                        except:
+                            await role.guild.create_role(
+                                name=role.name,
+                                permissions=role.permissions,
+                                colour=role.colour,
+                                hoist=role.hoist,
+                                mentionable=role.mentionable,
+                                reason=f"{get_language(role.guild.id,'[AntiCrash] Удаление ролей!')}",
                             )
-                            lc = gdata("vega", "logchannel")
-                            embed = discord.Embed(
-                                description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Удаление ролей!')}\n\n**{get_language(role.guild.id,'Информация о боте:')}**\n{get_language(role.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                                color=0xFCC21B,
-                            )
-                            embed.set_author(
-                                name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
-                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                            )
-                            embed.set_thumbnail(
-                                url=entry.user.avatar.replace(size=1024)
-                            )
-                            embed.set_footer(
-                                text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
-                            )
+                        if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
                             try:
-                                await client.get_channel(
-                                    int(lc[str(role.guild.id)])
-                                ).send(embed=embed)
+                                with open('json/msg_appeal.json', 'r') as f:
+                                    ma = json.load(f)
+                                text = ma[str(role.guild.id)]["appeal"]
+                                embed = discord.Embed(
+                                    title=f"{get_language(role.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                    color=0xFF2B2B,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'На сервере:')}",
+                                    value=f"{role.guild.name}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'Модератором:')}",
+                                    value=f"VEGA ⦡#7724",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'По причине:')}",
+                                    value=f"{get_language(role.guild.id,'[AntiCrash] Удаление ролей!')}\n`{get_language(role.guild.id,'Редактирование сервера запрещено!')}`",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'Владелец сервера:')}",
+                                    value=f"{role.guild.owner}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'Апелляция:')}",
+                                    value=f"{text}",
+                                    inline=False,
+                                )
+                                await entry.user.send(embed=embed)
+                                await entry.user.ban(
+                                    reason=f"{get_language(role.guild.id,'[AntiCrash] Удаление ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны участника!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(role.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiCrash] Удаление ролей!')}\n\n**{get_language(role.guild.id,'Информация об участнике:')}**\n{get_language(role.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                    color=0xFCC21B,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiCrash')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024)
+                                )
+                                embed.set_footer(
+                                    text=f"{get_language(role.guild.id,'ID участника:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[role.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
                             except:
                                 pass
-                        except:
-                            pass
-                        await role.guild.create_role(
-                            name=role.name,
-                            permissions=role.permissions,
-                            colour=role.colour,
-                            hoist=role.hoist,
-                            mentionable=role.mentionable,
-                        )
-                    else:
-                        print(f"[ ИНФО ] Роль {role} интегрирована.")
         except:
             pass
 
@@ -4100,11 +3312,6 @@ async def on_guild_role_delete(role):
 # Создание роли
 @client.event
 async def on_guild_role_create(role):
-    wl = gdata("vega", "ignorebots")
-    if str(role.guild.id) in wl:
-        dop = wl[str(role.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4112,53 +3319,322 @@ async def on_guild_role_create(role):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(role.guild.id)]
+            enabled = antibotdata[role.guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
             async for entry in role.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.role_create
             ):
-                w = gdata("vega", "wlbots")
+                """if role.managed:
+                    try:
+                        # Вега отберет права у любого бота с интегрированой ролью
+                        tmr = gdata("vega", "temp_role")
+                        if str(role.guild.id) not in tmr:
+                            tmr.update({str(role.guild.id): ""})
+                        if str(role.id) not in tmr[str(role.guild.id)]:
+                            tmr.update(
+                                {
+                                    str(role.guild.id): tmr[
+                                        str(role.guild.id)
+                                    ]
+                                    + str(f"{role.id},")
+                                    + " "
+                                }
+                            )
+                            wdata("vega", "temp_role", tmr)
+                    except:
+                        pass"""
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != role.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
+                ):
+                    if role.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[role.guild.id]:
+                            if entry.user.id not in ignorebotsdata[role.guild.id]["rights"]:
+                                if not role.managed:
+                                    vega = client.get_guild(role.guild.id).me
+                                    try:
+                                        if vega.top_role >= entry.user.top_role:
+                                            await role.delete(
+                                                reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                            )
+                                    except:
+                                        await role.delete(
+                                            reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                        )
+                                    if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
+                                        try:
+                                            await entry.user.ban(
+                                                reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
+                                                delete_message_days=1,
+                                            )
+                                            
+                                            embed = discord.Embed(
+                                                description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                                color=0xFCC21B,
+                                            )
+                                            if entry.user.public_flags.http_interactions_bot:
+                                                http_interactions_bot_bot = f"{get_language(role.guild.id,'Использует только HTTP взаимодействия')}"
+                                            else:
+                                                http_interactions_bot_bot = f"{get_language(role.guild.id,'Не использует HTTP взаимодействия')}"
+                                            if entry.user.public_flags.verified_bot:
+                                                verification_bot = f"{get_language(role.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                            else:
+                                                verification_bot = f"{get_language(role.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                            if entry.user.public_flags.spammer:
+                                                spamm_bot = f"{get_language(role.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                            else:
+                                                spamm_bot = f"{get_language(role.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                            embed.add_field(
+                                                name=f":information_source: {get_language(role.guild.id,'Информация о боте:')}",
+                                                value=f"{http_interactions_bot_bot}\n**{get_language(role.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(role.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(role.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(role.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                                inline=False,
+                                            )
+                                            embed.set_author(
+                                                name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
+                                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                            )
+                                            embed.set_thumbnail(
+                                                url=entry.user.avatar.replace(size=1024)
+                                            )
+                                            embed.set_footer(
+                                                text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
+                                            )
+                                            try:
+                                                await client.get_channel(
+                                                    int(logchanneldata[role.guild.id]["logchannel"])
+                                                ).send(embed=embed)
+                                            except:
+                                                pass
+                                            return
+                                        except:
+                                            pass
+                                else:
+                                    pass
+                        else:
+                            if not role.managed:
+                                vega = client.get_guild(role.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await role.delete(
+                                            reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                        )
+                                except:
+                                    await role.delete(
+                                        reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                    )
+                                if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(role.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(role.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(role.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(role.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(role.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(role.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(role.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(role.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(role.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(role.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(role.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024)
+                                        )
+                                        embed.set_footer(
+                                            text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[role.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                            else:
+                                pass
+                    else:
+                        if not role.managed:
+                            vega = client.get_guild(role.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await role.delete(
+                                        reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                    )
+                            except:
+                                await role.delete(
+                                    reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                )
+                            if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(role.guild.id,'[AntiBot] Создание ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Создание ролей!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(role.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(role.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(role.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(role.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(role.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(role.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(role.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(role.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(role.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(role.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(role.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024)
+                                    )
+                                    embed.set_footer(
+                                        text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[role.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                        else:
+                            pass
+        except:
+            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[role.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[role.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in role.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.role_create
+            ):
+                if (
+                    entry.user != role.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
                 ):
                     if not role.managed:
+                        vega = client.get_guild(role.guild.id).me
                         try:
-                            await entry.user.ban(
-                                reason=f"{get_language(role.guild.id,'[AntiBot] Создане ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны бота!')}",
-                                delete_message_days=1,
+                            if vega.top_role >= entry.user.top_role:
+                                await role.delete(
+                                    reason=f"{get_language(role.guild.id,'[AntiCrash] Создание ролей!')}",
+                                )
+                        except:
+                            await role.delete(
+                                reason=f"{get_language(role.guild.id,'[AntiCrash] Создание ролей!')}",
                             )
-                            lc = gdata("vega", "logchannel")
-                            embed = discord.Embed(
-                                description=f"{get_language(role.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(role.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(role.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiBot] Создане ролей!')}\n\n**{get_language(role.guild.id,'Информация о боте:')}**\n{get_language(role.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                                color=0xFCC21B,
-                            )
-                            embed.set_author(
-                                name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiBot')}",
-                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                            )
-                            embed.set_thumbnail(
-                                url=entry.user.avatar.replace(size=1024)
-                            )
-                            embed.set_footer(
-                                text=f"{get_language(role.guild.id,'ID бота:')} {entry.user.id}"
-                            )
+                        if entry.user in role.guild.members and vega.top_role >= entry.user.top_role:
                             try:
-                                await client.get_channel(
-                                    int(lc[str(role.guild.id)])
-                                ).send(embed=embed)
+                                with open('json/msg_appeal.json', 'r') as f:
+                                    ma = json.load(f)
+                                text = ma[str(role.guild.id)]["appeal"]
+                                embed = discord.Embed(
+                                    title=f"{get_language(role.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                    color=0xFF2B2B,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'На сервере:')}",
+                                    value=f"{role.guild.name}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'Модератором:')}",
+                                    value=f"VEGA ⦡#7724",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'По причине:')}",
+                                    value=f"{get_language(role.guild.id,'[AntiCrash] Создание ролей!')}\n`{get_language(role.guild.id,'Редактирование сервера запрещено!')}`",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'Владелец сервера:')}",
+                                    value=f"{role.guild.owner}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(role.guild.id,'Апелляция:')}",
+                                    value=f"{text}",
+                                    inline=False,
+                                )
+                                await entry.user.send(embed=embed)
+                                await entry.user.ban(
+                                    reason=f"{get_language(role.guild.id,'[AntiCrash] Создание ролей!')} {get_language(role.guild.id,'Подозрительные действия со стороны участника!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(role.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(role.guild.id,'Причина:')}**\n{get_language(role.guild.id,'[AntiCrash] Создание ролей!')}\n\n**{get_language(role.guild.id,'Информация об участнике:')}**\n{get_language(role.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                    color=0xFCC21B,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(role.guild.id,'был забанен функцией AntiCrash')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024)
+                                )
+                                embed.set_footer(
+                                    text=f"{get_language(role.guild.id,'ID участника:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[role.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
                             except:
                                 pass
-                        except:
-                            pass
-                        await role.delete()
         except:
             pass
 
@@ -4166,11 +3642,6 @@ async def on_guild_role_create(role):
 # Обновление роли
 @client.event
 async def on_guild_role_update(before, after):
-    wl = gdata("vega", "ignorebots")
-    if str(after.guild.id) in wl:
-        dop = wl[str(after.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4178,114 +3649,508 @@ async def on_guild_role_update(before, after):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(after.guild.id)]
+            enabled = antibotdata[after.guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
             async for entry in after.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.role_update
             ):
-                w = gdata("vega", "wlbots")
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != after.guild.owner
+                    entry.user != after.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление прав ролей!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление прав ролей!')}\n\n**{get_language(after.guild.id,'Информация о боте:')}**\n{get_language(after.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(int(lc[str(after.guild.id)])).send(
-                                embed=embed
-                            )
-                        except:
-                            pass
-                    except:
-                        pass
-                    await after.edit(permissions=before.permissions)
+                    
+                    tmr = gdata("vega", "temp_role")
+                    vega = client.get_guild(after.guild.id).me
+                    if (
+                        entry.user.id not in wlbotsdata[0]["Bots"]
+                    ):
+                        if after.guild.id in ignorebotsdata:
+                            if "rights" in ignorebotsdata[after.guild.id]:
+                                if entry.user.id not in ignorebotsdata[after.guild.id]["rights"]:
+                                    rposition = before.position != after.position
+                                    rposition2 = before.position == after.position
+                                    if (
+                                        rposition and before.colour != after.colour
+                                        or rposition and before.mentionable != after.mentionable
+                                        or rposition and before.hoist != after.hoist
+                                        or rposition and before.name != after.name
+                                        or rposition and before.permissions != after.permissions
+                                        or rposition2 and before.colour != after.colour
+                                        or rposition2 and before.mentionable != after.mentionable
+                                        or rposition2 and before.hoist != after.hoist
+                                        or rposition2 and before.name != after.name
+                                        or rposition2 and before.permissions != after.permissions
+                                    ):
+                                        try:
+                                            try:
+                                                await after.edit(
+                                                    colour=before.colour,
+                                                    mentionable=before.mentionable,
+                                                    hoist=before.hoist,
+                                                    name=before.name,
+                                                    permissions=before.permissions,
+                                                    position=before.position,
+                                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                                )
+                                            except:
+                                                await after.edit(
+                                                    colour=before.colour,
+                                                    mentionable=before.mentionable,
+                                                    hoist=before.hoist,
+                                                    name=before.name,
+                                                    permissions=before.permissions,
+                                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                                )
+                                        except:
+                                            pass
+                                        if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                            try:
+                                                await entry.user.ban(
+                                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                                    delete_message_days=1,
+                                                )
+                                                
+                                                embed = discord.Embed(
+                                                    description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                                    color=0xFCC21B,
+                                                )
+                                                if entry.user.public_flags.http_interactions_bot:
+                                                    http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                                else:
+                                                    http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                                if entry.user.public_flags.verified_bot:
+                                                    verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                                else:
+                                                    verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                                if entry.user.public_flags.spammer:
+                                                    spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                                else:
+                                                    spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                                embed.add_field(
+                                                    name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                                    value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                                    inline=False,
+                                                )
+                                                embed.set_author(
+                                                    name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                                )
+                                                embed.set_thumbnail(
+                                                    url=entry.user.avatar.replace(size=1024))
+                                                embed.set_footer(
+                                                    text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                                )
+                                                try:
+                                                    await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                                        embed=embed
+                                                    )
+                                                except:
+                                                    pass
+                                            except:
+                                                pass
+                                            try:
+                                                tmr.update(
+                                                    {
+                                                        str(after.guild.id): tmr[
+                                                            str(after.guild.id)
+                                                        ].replace(
+                                                            str(f"{after.id}, "),
+                                                            "",
+                                                        )
+                                                    }
+                                                )
+                                                wdata("vega", "temp_role", tmr)
+                                            except:
+                                                pass
+
+                                    """elif (
+                                        rposition and not before.colour != after.colour
+                                        and not  before.mentionable != after.mentionable
+                                        and not before.hoist != after.hoist
+                                        and not before.name != after.name
+                                        and not before.permissions != after.permissions
+                                    ):
+                                        #print("\033[36m [ ИНФО ]  Положение роли небыло изменено!")
+                                        pass
+                                        try:
+                                            await after.edit(
+                                                position=before.position,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей! (Произошло обратное изменение позиции роли.) Кто-то изменяет позицию роли!')}",
+                                            )
+                                        except:
+                                            pass
+                                    try:
+                                    if (
+                                        str(after.id) in tmr[str(after.guild.id)]
+                                        and after.managed
+                                    ):
+                                        # Вега вернет обновленные права интегрированной роли
+                                        await after.edit(
+                                            permissions=discord.Permissions(),
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Временная защита! (Отобрал права)')}",
+                                        )
+                                        await asyncio.sleep(10)
+                                        try:
+                                            tmr.update(
+                                                {
+                                                    str(after.guild.id): tmr[
+                                                        str(after.guild.id)
+                                                    ].replace(
+                                                        str(f"{after.id}, "),
+                                                        "",
+                                                    )
+                                                }
+                                            )
+                                            wdata("vega", "temp_role", tmr)
+                                        except:
+                                            pass
+                                        try:
+                                            await after.edit(
+                                                permissions=before.permissions,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Временная защита! (Вернул права)')}",
+                                            )
+                                        except:
+                                            pass"""
+                            else:
+                                rposition = before.position != after.position
+                                rposition2 = before.position == after.position
+                                if (
+                                    rposition and before.colour != after.colour
+                                    or rposition and before.mentionable != after.mentionable
+                                    or rposition and before.hoist != after.hoist
+                                    or rposition and before.name != after.name
+                                    or rposition and before.permissions != after.permissions
+                                    or rposition2 and before.colour != after.colour
+                                    or rposition2 and before.mentionable != after.mentionable
+                                    or rposition2 and before.hoist != after.hoist
+                                    or rposition2 and before.name != after.name
+                                    or rposition2 and before.permissions != after.permissions
+                                ):
+                                    try:
+                                        try:
+                                            await after.edit(
+                                                colour=before.colour,
+                                                mentionable=before.mentionable,
+                                                hoist=before.hoist,
+                                                name=before.name,
+                                                permissions=before.permissions,
+                                                position=before.position,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                            )
+                                        except:
+                                            await after.edit(
+                                                colour=before.colour,
+                                                mentionable=before.mentionable,
+                                                hoist=before.hoist,
+                                                name=before.name,
+                                                permissions=before.permissions,
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                            )
+                                    except:
+                                        pass
+                                    if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                        try:
+                                            await entry.user.ban(
+                                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                                delete_message_days=1,
+                                            )
+                                            
+                                            embed = discord.Embed(
+                                                description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                                color=0xFCC21B,
+                                            )
+                                            if entry.user.public_flags.http_interactions_bot:
+                                                http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                            else:
+                                                http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                            if entry.user.public_flags.verified_bot:
+                                                verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                            else:
+                                                verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                            if entry.user.public_flags.spammer:
+                                                spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                            else:
+                                                spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                            embed.add_field(
+                                                name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                                value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                                inline=False,
+                                            )
+                                            embed.set_author(
+                                                name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                            )
+                                            embed.set_thumbnail(
+                                                url=entry.user.avatar.replace(size=1024))
+                                            embed.set_footer(
+                                                text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                            )
+                                            try:
+                                                await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                                    embed=embed
+                                                )
+                                            except:
+                                                pass
+                                        except:
+                                            pass
+                                        try:
+                                            tmr.update(
+                                                {
+                                                    str(after.guild.id): tmr[
+                                                        str(after.guild.id)
+                                                    ].replace(
+                                                        str(f"{after.id}, "),
+                                                        "",
+                                                    )
+                                                }
+                                            )
+                                            wdata("vega", "temp_role", tmr)
+                                        except:
+                                            pass
+                        else:
+                            rposition = before.position != after.position
+                            rposition2 = before.position == after.position
+                            if (
+                                rposition and before.colour != after.colour
+                                or rposition and before.mentionable != after.mentionable
+                                or rposition and before.hoist != after.hoist
+                                or rposition and before.name != after.name
+                                or rposition and before.permissions != after.permissions
+                                or rposition2 and before.colour != after.colour
+                                or rposition2 and before.mentionable != after.mentionable
+                                or rposition2 and before.hoist != after.hoist
+                                or rposition2 and before.name != after.name
+                                or rposition2 and before.permissions != after.permissions
+                            ):
+                                try:
+                                    try:
+                                        await after.edit(
+                                            colour=before.colour,
+                                            mentionable=before.mentionable,
+                                            hoist=before.hoist,
+                                            name=before.name,
+                                            permissions=before.permissions,
+                                            position=before.position,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                        )
+                                    except:
+                                        await after.edit(
+                                            colour=before.colour,
+                                            mentionable=before.mentionable,
+                                            hoist=before.hoist,
+                                            name=before.name,
+                                            permissions=before.permissions,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                        )
+                                except:
+                                    pass
+                                if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление ролей!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                                embed=embed
+                                            )
+                                        except:
+                                            pass
+                                    except:
+                                        pass
+                                    try:
+                                        tmr.update(
+                                            {
+                                                str(after.guild.id): tmr[
+                                                    str(after.guild.id)
+                                                ].replace(
+                                                    str(f"{after.id}, "),
+                                                    "",
+                                                )
+                                            }
+                                        )
+                                        wdata("vega", "temp_role", tmr)
+                                    except:
+                                        pass
         except:
             pass
 
-
-# Обновление канала
-@client.event
-async def on_guild_channel_update(before, after):
-    wl = gdata("vega", "ignorebots")
-    if str(after.guild.id) in wl:
-        dop = wl[str(after.guild.id)]
-    else:
-        dop = ""
-    try:
-        enabled = deactivatedata[0]["Option"]
-    except KeyError:
-        enabled = False
-    if enabled:
-        pass
-    else:
-        data = gdata("vega", "antibot")
+        # Антикраш участников
         try:
-            enabled = data[str(after.guild.id)]
+            enabled = user_anticrashdata[after.guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
-            async for entry in after.guild.audit_logs(
-                limit=1, action=discord.AuditLogAction.channel_update
-            ):
-                w = gdata("vega", "wlbots")
-                if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != after.guild.owner
-                    and enabled
-                    and entry.user.bot
-                    and not str(entry.user.id) in dop
-                ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление настроек каналов!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление настроек каналов!')}\n\n**{get_language(after.guild.id,'Информация о боте:')}**\n{get_language(after.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(int(lc[str(after.guild.id)])).send(
-                                embed=embed
-                            )
-                        except:
-                            pass
-                    except:
-                        pass
+            try:
+                enabled_2 = editserverdata[after.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
 
-                    await after.edit(overwrites=before.overwrites)
+            async for entry in after.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.role_update
+            ):
+                if (
+                    entry.user != after.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    vega = client.get_guild(after.guild.id).me
+                    rposition = before.position != after.position
+                    rposition2 = before.position == after.position
+                    if (
+                        rposition and before.colour != after.colour
+                        or rposition and before.mentionable != after.mentionable
+                        or rposition and before.hoist != after.hoist
+                        or rposition and before.name != after.name
+                        or rposition and before.permissions != after.permissions
+                        or rposition2 and before.colour != after.colour
+                        or rposition2 and before.mentionable != after.mentionable
+                        or rposition2 and before.hoist != after.hoist
+                        or rposition2 and before.name != after.name
+                        or rposition2 and before.permissions != after.permissions
+                    ):
+                        try:
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await after.edit(
+                                        colour=before.colour,
+                                        mentionable=before.mentionable,
+                                        hoist=before.hoist,
+                                        name=before.name,
+                                        permissions=before.permissions,
+                                        position=before.position,
+                                        reason=f"{get_language(before.guild.id,'[AntiCrash] Обновление ролей!')}",
+                                    )
+                            except:
+                                if vega.top_role >= entry.user.top_role:
+                                    await after.edit(
+                                        colour=before.colour,
+                                        mentionable=before.mentionable,
+                                        hoist=before.hoist,
+                                        name=before.name,
+                                        permissions=before.permissions,
+                                        reason=f"{get_language(before.guild.id,'[AntiCrash] Обновление ролей!')}",
+                                    )
+                        except:
+                            try:
+                                await after.edit(
+                                    colour=before.colour,
+                                    mentionable=before.mentionable,
+                                    hoist=before.hoist,
+                                    name=before.name,
+                                    permissions=before.permissions,
+                                    position=before.position,
+                                    reason=f"{get_language(before.guild.id,'[AntiCrash] Обновление ролей!')}",
+                                )
+                            except:
+                                await after.edit(
+                                    colour=before.colour,
+                                    mentionable=before.mentionable,
+                                    hoist=before.hoist,
+                                    name=before.name,
+                                    permissions=before.permissions,
+                                    reason=f"{get_language(before.guild.id,'[AntiCrash] Обновление ролей!')}",
+                                )
+                        if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                with open('json/msg_appeal.json', 'r') as f:
+                                    ma = json.load(f)
+                                text = ma[str(after.guild.id)]["appeal"]
+                                embed = discord.Embed(
+                                    title=f"{get_language(after.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                    color=0xFF2B2B,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(after.guild.id,'На сервере:')}",
+                                    value=f"{after.guild.name}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(after.guild.id,'Модератором:')}",
+                                    value=f"VEGA ⦡#7724",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(after.guild.id,'По причине:')}",
+                                    value=f"{get_language(after.guild.id,'[AntiCrash] Обновление ролей!')}\n`{get_language(after.guild.id,'Редактирование сервера запрещено!')}`",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(after.guild.id,'Владелец сервера:')}",
+                                    value=f"{after.guild.owner}",
+                                    inline=False,
+                                )
+                                embed.add_field(
+                                    name=f"{get_language(after.guild.id,'Апелляция:')}",
+                                    value=f"{text}",
+                                    inline=False,
+                                )
+                                await entry.user.send(embed=embed)
+                                await entry.user.ban(
+                                    reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление ролей!')} {get_language(after.guild.id,'Подозрительные действия со стороны участника!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(after.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiCrash] Обновление ролей!')}\n\n**{get_language(after.guild.id,'Информация об участнике:')}**\n{get_language(after.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                    color=0xFCC21B,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiCrash')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024)
+                                )
+                                embed.set_footer(
+                                    text=f"{get_language(after.guild.id,'ID участника:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[after.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
         except:
             pass
 
@@ -4293,11 +4158,6 @@ async def on_guild_channel_update(before, after):
 # Бан пользователя
 @client.event
 async def on_member_ban(guild, user):
-    wl = gdata("vega", "ignorebots")
-    if str(guild.id) in wl:
-        dop = wl[str(guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4305,85 +4165,318 @@ async def on_member_ban(guild, user):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(guild.id)]
+            enabled = antibotdata[guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        
+        
+        async for entry in guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.ban
+        ):
+            if (
+                not entry.user.id in wlbotsdata[0]["Bots"]
+                and entry.user != guild.owner
+                and enabled
+                and entry.user.bot
+            ):
+                if guild.id in ignorebotsdata:
+                    if "rights" in ignorebotsdata[guild.id]:
+                        if entry.user.id not in ignorebotsdata[guild.id]["rights"]:
+                            vega = client.get_guild(guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await guild.unban(user)
+                            except:
+                                await guild.unban(user)
+                            if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(guild.id,'[AntiBot] Бан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    embed = discord.Embed(
+                                        description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Бан пользователя!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(guild.id).me
+                        try:
+                            if vega.top_role >= entry.user.top_role:
+                                await guild.unban(user)
+                        except:
+                            await guild.unban(user)
+                        if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(guild.id,'[AntiBot] Бан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                embed = discord.Embed(
+                                    description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Бан пользователя!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+                else:
+                    vega = client.get_guild(guild.id).me
+                    try:
+                        if vega.top_role >= entry.user.top_role:
+                            await guild.unban(user)
+                    except:
+                        await guild.unban(user)
+                    if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            await entry.user.ban(
+                                reason=f"{get_language(guild.id,'[AntiBot] Бан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                delete_message_days=1,
+                            )
+                            embed = discord.Embed(
+                                description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Бан пользователя!')}",
+                                color=0xFCC21B,
+                            )
+                            if entry.user.public_flags.http_interactions_bot:
+                                http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                            else:
+                                http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                            if entry.user.public_flags.verified_bot:
+                                verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                            else:
+                                verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                            if entry.user.public_flags.spammer:
+                                spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                            else:
+                                spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                            embed.add_field(
+                                name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                inline=False,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                    embed=embed
+                                )
+                            except:
+                                pass
+                            return
+                        except:
+                            pass
+
+            # \/  Кто забанил бота  \/
+            elif entry.target.bot and entry.user != client.get_user(
+                795551166393876481
+            ):
+                embed = discord.Embed(
+                    description=f"**{get_language(guild.id,'Пользователем:')}** {entry.user}\n**ID:** `{entry.user.id}`",
+                    color=0xFF2B2B,
+                )
+                if entry.user.public_flags.http_interactions_bot:
+                    http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                else:
+                    http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                if entry.user.public_flags.verified_bot:
+                    verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                else:
+                    verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                if entry.user.public_flags.spammer:
+                    spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                else:
+                    spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                embed.add_field(
+                    name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                    value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                    inline=False,
+                )
+                embed.set_author(
+                    name=f"{user} {get_language(guild.id,'забанен!')}",
+                    icon_url="https://cdn.discordapp.com/attachments/713751423128698950/810933957197037588/ban.png",
+                )
+                embed.set_thumbnail(url=user.avatar.replace(size=1024))
+                embed.set_footer(
+                    text=f"{get_language(guild.id,'ID бота:')} {user.id}"
+                )
+                try:
+                    await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                        embed=embed
+                    )
+                except:
+                    pass
+            else:
+                pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
-            w = gdata("vega", "wlbots")
-            lc = gdata("vega", "logchannel")
-            async for entry in guild.audit_logs(
-                limit=1, action=discord.AuditLogAction.ban
+            enabled_2 = editserverdata[guild.id]["enabled"]
+        except KeyError:
+            enabled_2 = False
+        async for entry in guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.ban
+        ):
+            if (
+                entry.user != guild.owner
+                and enabled
+                and enabled_2
+                and not entry.user.bot
             ):
-                if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != guild.owner
-                    and enabled
-                    and entry.user.bot
-                    and not str(entry.user.id) in dop
-                ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(guild.id,'[AntiBot] Бан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        await guild.unban(user)
-                        embed = discord.Embed(
-                            description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Бан пользователя!')}\n\n**{get_language(guild.id,'Информация о боте:')}**\n{get_language(guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(int(lc[str(guild.id)])).send(
-                                embed=embed
-                            )
-                        except:
-                            pass
-                    except:
-                        pass
-                elif entry.target.bot and entry.user != client.get_user(
-                    795551166393876481
-                ):
-                    embed = discord.Embed(
-                        description=f"**{get_language(guild.id,'Пользователем:')}** {entry.user}\n**ID:** `{entry.user.id}`\n\n**{get_language(guild.id,'Информация о боте:')}**\n{get_language(guild.id,'Присоединился:')} <t:{int(user.joined_at.timestamp())}:F>\n{get_language(guild.id,'Создан:')} <t:{int(user.created_at.timestamp())}:F>",
-                        color=0xFF2B2B,
-                    )
-                    embed.set_author(
-                        name=f"{user} {get_language(guild.id,'забанен!')}",
-                        icon_url="https://cdn.discordapp.com/attachments/713751423128698950/810933957197037588/ban.png",
-                    )
-                    embed.set_thumbnail(url=user.avatar.replace(size=1024))
-                    embed.set_footer(
-                        text=f"{get_language(guild.id,'ID бота:')} {user.id}"
-                    )
-                    try:
-                        await client.get_channel(int(lc[str(guild.id)])).send(
-                            embed=embed
-                        )
-                    except:
-                        pass
-                else:
-                    pass
-        except:
-            pass
-
+                if guild.id in wluserdata:
+                    if "members" in wluserdata[guild.id]:
+                        if entry.user.id not in wluserdata[guild.id]["members"]:
+                            vega = client.get_guild(guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await guild.unban(user)
+                            except:
+                                await guild.unban(user)
+                            if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    with open('json/msg_appeal.json', 'r') as f:
+                                        ma = json.load(f)
+                                    text = ma[str(guild.id)]["appeal"]
+                                    embed = discord.Embed(
+                                        title=f"{get_language(guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                        color=0xFF2B2B,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'На сервере:')}",
+                                        value=f"{guild.name}",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'Модератором:')}",
+                                        value=f"VEGA ⦡#7724",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'По причине:')}",
+                                        value=f"{get_language(guild.id,'[AntiCrash] Бан пользователя!')}\n`{get_language(guild.id,'Вас нет в белом списке!')}`",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'Владелец сервера:')}",
+                                        value=f"{guild.owner}",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'Апелляция:')}",
+                                        value=f"{text}",
+                                        inline=False,
+                                    )
+                                    await entry.user.send(embed=embed)
+                                    await entry.user.ban(
+                                        reason=f"{get_language(guild.id,'[AntiCrash] Бан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны участника!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiCrash] Бан пользователя!')}\n\n**{get_language(guild.id,'Информация об участнике:')}**\n{get_language(guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                        color=0xFCC21B,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiCrash')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024)
+                                    )
+                                    embed.set_footer(
+                                        text=f"{get_language(guild.id,'ID участника:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                   
 
 # Разбан пользователя
 @client.event
 async def on_member_unban(guild, user):
-    wl = gdata("vega", "ignorebots")
-    if str(guild.id) in wl:
-        dop = wl[str(guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4391,64 +4484,288 @@ async def on_member_unban(guild, user):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(guild.id)]
+            enabled = antibotdata[guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        async for entry in guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.unban
+        ):
+            
+            if (
+                not entry.user.id in wlbotsdata[0]["Bots"]
+                and entry.user != guild.owner
+                and enabled
+                and entry.user.bot
+            ):
+                if guild.id in ignorebotsdata:
+                    if "rights" in ignorebotsdata[guild.id]:
+                        if entry.user.id not in ignorebotsdata[guild.id]["rights"]:
+                            vega = client.get_guild(guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await guild.ban(user)
+                            except:
+                                await guild.ban(user)
+                            if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(guild.id,'[AntiBot] Разбан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Разбан пользователя!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(guild.id).me
+                        try:
+                            if vega.top_role >= entry.user.top_role:
+                                await guild.ban(user)
+                        except:
+                            await guild.ban(user)
+                        if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(guild.id,'[AntiBot] Разбан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Разбан пользователя!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+                else:
+                    vega = client.get_guild(guild.id).me
+                    try:
+                        if vega.top_role >= entry.user.top_role:
+                            await guild.ban(user)
+                    except:
+                        await guild.ban(user)
+                    if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            await entry.user.ban(
+                                reason=f"{get_language(guild.id,'[AntiBot] Разбан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Разбан пользователя!')}",
+                                color=0xFCC21B,
+                            )
+                            if entry.user.public_flags.http_interactions_bot:
+                                http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                            else:
+                                http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                            if entry.user.public_flags.verified_bot:
+                                verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                            else:
+                                verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                            if entry.user.public_flags.spammer:
+                                spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                            else:
+                                spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                            embed.add_field(
+                                name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                inline=False,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                    embed=embed
+                                )
+                            except:
+                                pass
+                            return
+                        except:
+                            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[guild.id]["enabled"]
         except KeyError:
             enabled = False
         try:
-            async for entry in guild.audit_logs(
-                limit=1, action=discord.AuditLogAction.unban
+            enabled_2 = editserverdata[guild.id]["enabled"]
+        except KeyError:
+            enabled_2 = False
+
+        async for entry in guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.unban
+        ):
+            if (
+                entry.user != guild.owner
+                and enabled
+                and enabled_2
+                and not entry.user.bot
             ):
-                w = gdata("vega", "wlbots")
-                if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != guild.owner
-                    and enabled
-                    and entry.user.bot
-                    and not str(entry.user.id) in dop
-                ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(guild.id,'[AntiBot] Разбан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        await guild.ban(user)
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Разбан пользователя!')}\n\n**{get_language(guild.id,'Информация о боте:')}**\n{get_language(guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(int(lc[str(guild.id)])).send(
-                                embed=embed
-                            )
-                        except:
-                            pass
-                    except:
-                        pass
-        except:
-            pass
+                if guild.id in wluserdata:
+                    if "members" in wluserdata[guild.id]:
+                        if entry.user.id not in wluserdata[guild.id]["members"]:
+                            vega = client.get_guild(guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await guild.ban(user)
+                            except:
+                                await guild.ban(user)
+                            if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    with open('json/msg_appeal.json', 'r') as f:
+                                        ma = json.load(f)
+                                    text = ma[str(guild.id)]["appeal"]
+                                    embed = discord.Embed(
+                                        title=f"{get_language(guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                        color=0xFF2B2B,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'На сервере:')}",
+                                        value=f"{guild.name}",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'Модератором:')}",
+                                        value=f"VEGA ⦡#7724",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'По причине:')}",
+                                        value=f"{get_language(guild.id,'[AntiCrash] Разбан пользователя!')}\n`{get_language(guild.id,'Вас нет в белом списке!')}`",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'Владелец сервера:')}",
+                                        value=f"{guild.owner}",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(guild.id,'Апелляция:')}",
+                                        value=f"{text}",
+                                        inline=False,
+                                    )
+                                    await entry.user.send(embed=embed)
+                                    await entry.user.ban(
+                                        reason=f"{get_language(guild.id,'[AntiCrash] Разбан пользователя!')} {get_language(guild.id,'Подозрительные действия со стороны участника!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiCrash] Разбан пользователя!')}\n\n**{get_language(guild.id,'Информация об участнике:')}**\n{get_language(guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                        color=0xFCC21B,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiCrash')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024)
+                                    )
+                                    embed.set_footer(
+                                        text=f"{get_language(guild.id,'ID участника:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
 
 
 # Обновление пользователя
 @client.event
 async def on_member_update(before, after):
-    try:
+    # Проверка роли мута и ее выдача
+    """try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
         enabled = False
     if enabled:
         pass
     else:
+        pass
         if before.roles != after.roles:
             mu = gdata("vega", "mute_users")
             mr = gdata("vega", "muterole")
@@ -4464,12 +4781,319 @@ async def on_member_update(before, after):
                     mu2 = mu2.replace(str(after.id), "").strip()
                     mu[str(after.guild.id)] = mu2
                     wdata("vega", "mute_users", mu)
-                elif not mr in [r.id for r in before.roles] and mr in [
+                elif mr not in [r.id for r in before.roles] and mr in [
                     r.id for r in after.roles
                 ]:
                     mu2 += str(after.id) + " "
                     mu[str(after.guild.id)] = mu2
-                    wdata("vega", "mute_users", mu)
+                    wdata("vega", "mute_users", mu)"""
+
+    # Антибот и Антикраш
+    try:
+        enabled = deactivatedata[0]["Option"]
+    except KeyError:
+        enabled = False
+    if enabled:
+        pass
+    else:
+        # Антибот
+        try:
+            enabled = antibotdata[after.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            async for entry in after.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.member_role_update
+            ):
+                
+                if (
+                    not entry.user.id in wlbotsdata[0]["Bots"]
+                    and entry.user != after.guild.owner
+                    and enabled
+                    and entry.user.bot
+                ):
+                    if after.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[after.guild.id]:
+                            if entry.user.id not in ignorebotsdata[after.guild.id]["rights"]:
+                                vega = client.get_guild(after.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await after.edit(
+                                            role=before.role,
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                        )
+                                except:
+                                    await after.edit(
+                                        role=before.role,
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                    )
+                                if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                                embed=embed
+                                            )
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(after.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await after.edit(
+                                        role=before.role,
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                    )
+                            except:
+                                await after.edit(
+                                    role=before.role,
+                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                )
+                            if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(after.guild.id).me
+                        try:
+                            if vega.top_role >= entry.user.top_role:
+                                await after.edit(
+                                    role=before.role,
+                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                )
+                        except:
+                            await after.edit(
+                                role=before.role,
+                                reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                            )
+                        if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление ролей у пользователя!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(after.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(after.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(after.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(after.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(after.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(after.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(after.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(after.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(after.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[after.guild.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+        except:
+            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[after.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[after.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in after.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.member_role_update
+            ):
+                if (
+                    entry.user != after.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    if after.guild.id in wluserdata:
+                        if "members" in wluserdata[after.guild.id]:
+                            if entry.user.id not in wluserdata[after.guild.id]["members"]:
+                                vega = client.get_guild(after.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await after.edit(
+                                            roles=before.roles,
+                                            reason=f"{get_language(before.guild.id,'[AntiCrash] Обновление ролей у участника!')}",
+                                        )
+                                except:
+                                    await after.edit(
+                                        roles=before.roles,
+                                        reason=f"{get_language(before.guild.id,'[AntiCrash] Обновление ролей у участника!')}",
+                                    )
+                                if entry.user in after.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        with open('json/msg_appeal.json', 'r') as f:
+                                            ma = json.load(f)
+                                        text = ma[str(after.guild.id)]["appeal"]
+                                        embed = discord.Embed(
+                                            title=f"{get_language(after.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                            color=0xFF2B2B,
+                                        )
+                                        embed.add_field(
+                                            name=f"{get_language(after.guild.id,'На сервере:')}",
+                                            value=f"{after.guild.name}",
+                                            inline=False,
+                                        )
+                                        embed.add_field(
+                                            name=f"{get_language(after.guild.id,'Модератором:')}",
+                                            value=f"VEGA ⦡#7724",
+                                            inline=False,
+                                        )
+                                        embed.add_field(
+                                            name=f"{get_language(after.guild.id,'По причине:')}",
+                                            value=f"{get_language(after.guild.id,'[AntiCrash] Обновление ролей у участника!')}\n`{get_language(after.guild.id,'Вас нет в белом списке!')}`",
+                                            inline=False,
+                                        )
+                                        embed.add_field(
+                                            name=f"{get_language(after.guild.id,'Владелец сервера:')}",
+                                            value=f"{after.guild.owner}",
+                                            inline=False,
+                                        )
+                                        embed.add_field(
+                                            name=f"{get_language(after.guild.id,'Апелляция:')}",
+                                            value=f"{text}",
+                                            inline=False,
+                                        )
+                                        await entry.user.send(embed=embed)
+                                        await entry.user.ban(
+                                            reason=f"{get_language(after.guild.id,'[AntiCrash] Обновление ролей у участника!')} {get_language(after.guild.id,'Подозрительные действия со стороны участника!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiCrash] Обновление ролей у участника!')}\n\n**{get_language(after.guild.id,'Информация об участнике:')}**\n{get_language(after.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                            color=0xFCC21B,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiCrash')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024)
+                                        )
+                                        embed.set_footer(
+                                            text=f"{get_language(after.guild.id,'ID участника:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[after.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+        except:
+            pass
 
 
 """@client.event
@@ -4502,11 +5126,6 @@ async def on_guild_member_update(before, after):
 # Настройки гильдии
 @client.event
 async def on_guild_update(before, after):
-    wl = gdata("vega", "ignorebots")
-    if str(after.id) in wl:
-        dop = wl[str(after.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4514,52 +5133,331 @@ async def on_guild_update(before, after):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(after.id)]
+            enabled = antibotdata[after.id]["enabled"]
         except KeyError:
             enabled = False
         try:
             async for entry in after.audit_logs(
                 limit=1, action=discord.AuditLogAction.guild_update
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != after.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(after.guild.id,'[AntiBot] Обновление настроек сервера!')} {get_language(after.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(after.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.guild.id,'Причина:')}**\n{get_language(after.guild.id,'[AntiBot] Обновление настроек сервера!')}\n\n**{get_language(after.guild.id,'Информация о боте:')}**\n{get_language(after.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(after.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(after.guild.id,'ID бота:')} {entry.user.id}"
-                        )
+                    if after.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[after.id]:
+                            if entry.user.id not in ignorebotsdata[after.id]["rights"]:
+                                vega = client.get_guild(after.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await after.edit(
+                                            afk_channel=before.afk_channel,
+                                            name=before.name,
+                                            system_channel=before.system_channel,
+                                            afk_timeout=before.afk_timeout,
+                                            explicit_content_filter=before.explicit_content_filter,
+                                            reason=f"{get_language(before.id,'[AntiBot] Обновление настроек сервера!')}",
+                                        )
+                                except:
+                                    await after.edit(
+                                        afk_channel=before.afk_channel,
+                                        name=before.name,
+                                        system_channel=before.system_channel,
+                                        afk_timeout=before.afk_timeout,
+                                        explicit_content_filter=before.explicit_content_filter,
+                                        reason=f"{get_language(before.id,'[AntiBot] Обновление настроек сервера!')}",
+                                    )
+                                if entry.user in after.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(after.id,'[AntiBot] Обновление настроек сервера!')} {get_language(after.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(after.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.id,'Причина:')}**\n{get_language(after.id,'[AntiBot] Обновление настроек сервера!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(after.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(after.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(after.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(after.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(after.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(after.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(after.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(after.id,'Верификация:')}** {verification_bot}\n**{get_language(after.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(after.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(after.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(int(logchanneldata[after.id]["logchannel"])).send(
+                                                embed=embed
+                                            )
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(after.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await after.edit(
+                                        afk_channel=before.afk_channel,
+                                        name=before.name,
+                                        system_channel=before.system_channel,
+                                        afk_timeout=before.afk_timeout,
+                                        explicit_content_filter=before.explicit_content_filter,
+                                        reason=f"{get_language(before.id,'[AntiBot] Обновление настроек сервера!')}",
+                                    )
+                            except:
+                                await after.edit(
+                                    afk_channel=before.afk_channel,
+                                    name=before.name,
+                                    system_channel=before.system_channel,
+                                    afk_timeout=before.afk_timeout,
+                                    explicit_content_filter=before.explicit_content_filter,
+                                    reason=f"{get_language(before.id,'[AntiBot] Обновление настроек сервера!')}",
+                                )
+                            if entry.user in after.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(after.id,'[AntiBot] Обновление настроек сервера!')} {get_language(after.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(after.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.id,'Причина:')}**\n{get_language(after.id,'[AntiBot] Обновление настроек сервера!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(after.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(after.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(after.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(after.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(after.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(after.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(after.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(after.id,'Верификация:')}** {verification_bot}\n**{get_language(after.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(after.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(after.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[after.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(after.id).me
                         try:
-                            await client.get_channel(int(lc[str(after.guild.id)])).send(
-                                embed=embed
+                            if vega.top_role >= entry.user.top_role:
+                                await after.edit(
+                                    afk_channel=before.afk_channel,
+                                    name=before.name,
+                                    system_channel=before.system_channel,
+                                    afk_timeout=before.afk_timeout,
+                                    explicit_content_filter=before.explicit_content_filter,
+                                    reason=f"{get_language(before.id,'[AntiBot] Обновление настроек сервера!')}",
+                                )
+                        except:
+                            await after.edit(
+                                afk_channel=before.afk_channel,
+                                name=before.name,
+                                system_channel=before.system_channel,
+                                afk_timeout=before.afk_timeout,
+                                explicit_content_filter=before.explicit_content_filter,
+                                reason=f"{get_language(before.id,'[AntiBot] Обновление настроек сервера!')}",
                             )
+                        if entry.user in after.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(after.id,'[AntiBot] Обновление настроек сервера!')} {get_language(after.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(after.id,'Подозрительные действия со стороны бота!')}\n{get_language(after.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(after.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(after.id,'Причина:')}**\n{get_language(after.id,'[AntiBot] Обновление настроек сервера!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(after.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(after.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(after.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(after.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(after.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(after.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(after.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(after.id,'Верификация:')}** {verification_bot}\n**{get_language(after.id,'Спамер?:')}** {spamm_bot}\n**{get_language(after.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(after.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(after.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(after.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[after.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+        except:
+            pass
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[after.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[after.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in after.audit_logs(
+                limit=1, action=discord.AuditLogAction.guild_update
+            ):
+                if (
+                    entry.user != after.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    vega = client.get_guild(after.id).me
+                    try:
+                        if vega.top_role >= entry.user.top_role:
+                            await after.edit(
+                                afk_channel=before.afk_channel,
+                                name=before.name,
+                                system_channel=before.system_channel,
+                                afk_timeout=before.afk_timeout,
+                                explicit_content_filter=before.explicit_content_filter,
+                                reason=f"{get_language(before.id,'[AntiCrash] Обновление настроек сервера!')}",
+                            )
+                    except:
+                        await after.edit(
+                            afk_channel=before.afk_channel,
+                            name=before.name,
+                            system_channel=before.system_channel,
+                            afk_timeout=before.afk_timeout,
+                            explicit_content_filter=before.explicit_content_filter,
+                            reason=f"{get_language(before.id,'[AntiCrash] Обновление настроек сервера!')}",
+                        )
+                    if entry.user in after.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            with open('json/msg_appeal.json', 'r') as f:
+                                ma = json.load(f)
+                            text = ma[str(after.id)]["appeal"]
+                            embed = discord.Embed(
+                                title=f"{get_language(after.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                color=0xFF2B2B,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.id,'На сервере:')}",
+                                value=f"{after.name}",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.id,'Модератором:')}",
+                                value=f"VEGA ⦡#7724",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.id,'По причине:')}",
+                                value=f"{get_language(after.id,'[AntiCrash] Обновление настроек сервера!')}\n`{get_language(after.id,'Редактирование сервера запрещено!')}`",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.id,'Владелец сервера:')}",
+                                value=f"{after.owner}",
+                                inline=False,
+                            )
+                            embed.add_field(
+                                name=f"{get_language(after.id,'Апелляция:')}",
+                                value=f"{text}",
+                                inline=False,
+                            )
+                            await entry.user.send(embed=embed)
+                            await entry.user.ban(
+                                reason=f"{get_language(after.id,'[AntiCrash] Обновление настроек сервера!')} {get_language(after.id,'Подозрительные действия со стороны участника!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(after.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(after.id,'Причина:')}**\n{get_language(after.id,'[AntiCrash] Обновление настроек сервера!')}\n\n**{get_language(after.id,'Информация об участнике:')}**\n{get_language(after.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                color=0xFCC21B,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(after.id,'был забанен функцией AntiCrash')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024)
+                            )
+                            embed.set_footer(
+                                text=f"{get_language(after.id,'ID участника:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(
+                                    int(logchanneldata[after.id]["logchannel"])
+                                ).send(embed=embed)
+                            except:
+                                pass
+                            return
                         except:
                             pass
-                    except:
-                        pass
-
-                    await after.edit(name=before.name)
         except:
             pass
 
@@ -4567,11 +5465,6 @@ async def on_guild_update(before, after):
 # Эмодзи
 @client.event
 async def on_guild_emojis_update(guild, before, after):
-    wl = gdata("vega", "ignorebots")
-    if str(guild.id) in wl:
-        dop = wl[str(guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4579,13 +5472,12 @@ async def on_guild_emojis_update(guild, before, after):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
         try:
-            enabled = data[str(guild.id)]
+            enabled = antibotdata[guild.id]["enabled"]
         except KeyError:
             enabled = False
 
-        """# Эмодзи редактирован
+        """Эмодзи редактирован
         try:
             async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.emoji_update):
                 w = gdata('vega', 'wlbots')
@@ -4598,7 +5490,7 @@ async def on_guild_emojis_update(guild, before, after):
                         embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
                         embed.set_footer(text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}")
                         try:
-                            await client.get_channel(int(lc[str(guild.id)])).send(embed=embed)
+                            await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(embed=embed)
                         except:
                             pass
                     except:
@@ -4615,42 +5507,174 @@ async def on_guild_emojis_update(guild, before, after):
             async for entry in guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.emoji_create
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(guild.id,'[AntiBot] Создание эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Создание эмодзи!')}\n\n**{get_language(guild.id,'Информация о боте:')}**\n{get_language(guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
-                        )
+                    if guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[guild.id]:
+                            if entry.user.id not in ignorebotsdata[guild.id]["rights"]:
+                                vega = client.get_guild(guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await before.emoji.delete()
+                                except:
+                                    await before.emoji.delete()
+                                if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(guild.id,'[AntiBot] Создание эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Создание эмодзи!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                                embed=embed
+                                            )
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await before.emoji.delete()
+                            except:
+                                await before.emoji.delete()
+                            if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(guild.id,'[AntiBot] Создание эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Создание эмодзи!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(guild.id).me
                         try:
-                            await client.get_channel(int(lc[str(guild.id)])).send(
-                                embed=embed
-                            )
+                            if vega.top_role >= entry.user.top_role:
+                                await before.emoji.delete()
                         except:
-                            pass
-                    except:
-                        pass
-
-                    await before.emoji.delete()
+                            await before.emoji.delete()
+                        if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(guild.id,'[AntiBot] Создание эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Создание эмодзи!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
         except:
             pass
 
@@ -4659,40 +5683,159 @@ async def on_guild_emojis_update(guild, before, after):
             async for entry in guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.emoji_delete
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not str(entry.user.id) in wlbotsdata[0]["Bots"]
                     and entry.user != guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(guild.id,'[AntiBot] Удаление эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Удаление эмодзи!')}\n\n**{get_language(guild.id,'Информация о боте:')}**\n{get_language(guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(int(lc[str(guild.id)])).send(
-                                embed=embed
-                            )
-                        except:
-                            pass
-                    except:
-                        pass
+                    if guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[guild.id]:
+                            if entry.user.id not in ignorebotsdata[guild.id]["rights"]:
+                                vega = client.get_guild(guild.id).me
+                                if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(guild.id,'[AntiBot] Удаление эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Удаление эмодзи!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(guild.user.joined_at.timestamp())}:D> *(<t:{int(guild.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                                embed=embed
+                                            )
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(guild.id).me
+                            if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(guild.id,'[AntiBot] Удаление эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Удаление эмодзи!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(guild.user.joined_at.timestamp())}:D> *(<t:{int(guild.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                            embed=embed
+                                        )
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(guild.id).me
+                        if entry.user in guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(guild.id,'[AntiBot] Удаление эмодзи!')} {get_language(guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(guild.id,'Причина:')}**\n{get_language(guild.id,'[AntiBot] Удаление эмодзи!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(guild.id,'Верификация:')}** {verification_bot}\n**{get_language(guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(guild.id,'Присоединился:')}** <t:{int(guild.user.joined_at.timestamp())}:D> *(<t:{int(guild.user.joined_at.timestamp())}:R>)*\n**{get_language(guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(int(logchanneldata[guild.id]["logchannel"])).send(
+                                        embed=embed
+                                    )
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
         except:
             pass
 
@@ -4700,11 +5843,6 @@ async def on_guild_emojis_update(guild, before, after):
 # Создание приглашения
 @client.event
 async def on_invite_create(invite):
-    wl = gdata("vega", "ignorebots")
-    if str(invite.guild.id) in wl:
-        dop = wl[str(invite.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4712,9 +5850,8 @@ async def on_invite_create(invite):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
         try:
-            enabled = data[str(invite.guild.id)]
+            enabled = antibotdata[invite.guild.id]["enabled"]
         except KeyError:
             enabled = False
 
@@ -4723,42 +5860,174 @@ async def on_invite_create(invite):
             async for entry in invite.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.invite_create
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != invite.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')}\n\n**{get_language(invite.guild.id,'Информация о боте:')}**\n{get_language(invite.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
-                        )
+                    if invite.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[invite.guild.id]:
+                            if entry.user.id not in ignorebotsdata[invite.guild.id]["rights"]:
+                                vega = client.get_guild(invite.guild.id).me
+                                try:
+                                    if vega.top_role >= entry.user.top_role:
+                                        await invite.delete()
+                                except:
+                                    await invite.delete()
+                                if entry.user in invite.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(invite.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(invite.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(invite.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(invite.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(invite.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(invite.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(invite.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(invite.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(invite.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(invite.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(invite.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[invite.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(invite.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await invite.delete()
+                            except:
+                                await invite.delete()
+                            if entry.user in invite.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(invite.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(invite.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(invite.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(invite.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(invite.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(invite.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(invite.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(invite.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(invite.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(invite.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(invite.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[invite.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(invite.guild.id).me
                         try:
-                            await client.get_channel(
-                                int(lc[str(invite.guild.id)])
-                            ).send(embed=embed)
+                            if vega.top_role >= entry.user.top_role:
+                                await invite.delete()
                         except:
-                            pass
-                    except:
-                        pass
-
-                    await invite.delete()
+                            await invite.delete()
+                        if entry.user in invite.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Создание приглашения!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(invite.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(invite.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(invite.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(invite.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(invite.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(invite.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(invite.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(invite.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(invite.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(invite.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(invite.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[invite.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
         except:
             pass
 
@@ -4766,11 +6035,6 @@ async def on_invite_create(invite):
 # Удаление приглашения
 @client.event
 async def on_invite_remove(invite):
-    wl = gdata("vega", "ignorebots")
-    if str(invite.guild.id) in wl:
-        dop = wl[str(invite.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4778,9 +6042,8 @@ async def on_invite_remove(invite):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
         try:
-            enabled = data[str(invite.guild.id)]
+            enabled = antibotdata[invite.guild.id]["enabled"]
         except KeyError:
             enabled = False
 
@@ -4789,52 +6052,170 @@ async def on_invite_remove(invite):
             async for entry in invite.guild.audit_logs(
                 limit=1, action=discord.AuditLogAction.invite_remove
             ):
-                w = gdata("vega", "wlbots")
+                
                 if (
-                    not str(entry.user.id) in w[str("Bots")]
+                    not entry.user.id in wlbotsdata[0]["Bots"]
                     and entry.user != invite.guild.owner
                     and enabled
                     and entry.user.bot
-                    and not str(entry.user.id) in dop
                 ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')}\n\n**{get_language(invite.guild.id,'Информация о боте:')}**\n{get_language(invite.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
-                        )
-                        try:
-                            await client.get_channel(
-                                int(lc[str(invite.guild.id)])
-                            ).send(embed=embed)
-                        except:
-                            pass
-                    except:
-                        pass
+                    if invite.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[invite.guild.id]:
+                            if entry.user.id not in ignorebotsdata[invite.guild.id]["rights"]:
+                                vega = client.get_guild(invite.guild.id).me
+                                if entry.user in invite.guild.members and vega.top_role >= entry.user.top_role:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(invite.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(invite.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(invite.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(invite.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(invite.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(invite.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(invite.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(invite.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(invite.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(invite.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(invite.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024))
+                                        embed.set_footer(
+                                            text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[invite.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                        else:
+                            vega = client.get_guild(invite.guild.id).me
+                            if entry.user in invite.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(invite.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(invite.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(invite.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(invite.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(invite.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(invite.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(invite.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(invite.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(invite.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(invite.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(invite.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[invite.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(invite.guild.id).me
+                        if entry.user in invite.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')} {get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(invite.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(invite.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(invite.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(invite.guild.id,'Причина:')}**\n{get_language(invite.guild.id,'[AntiBot] Удаление приглашения!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(invite.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(invite.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(invite.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(invite.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(invite.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(invite.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(invite.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(invite.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(invite.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(invite.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(invite.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(invite.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(invite.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[invite.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
         except:
             pass
 
 
 # Вебхуки
+"""async def webhook():
+    await webhook.delete(
+        reason=f"{get_language(webhook.guild.id,'[AntiCrash] Создание вебхука!')}",
+    )"""
 @client.event
 async def on_webhooks_update(channel):
-    wl = gdata("vega", "ignorebots")
-    if str(channel.guild.id) in wl:
-        dop = wl[str(channel.guild.id)]
-    else:
-        dop = ""
     try:
         enabled = deactivatedata[0]["Option"]
     except KeyError:
@@ -4842,139 +6223,755 @@ async def on_webhooks_update(channel):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(channel.guild.id)]
+            enabled = antibotdata[channel.guild.id]["enabled"]
         except KeyError:
             enabled = False
-
         # Вебхук создан
-        try:
-            async for entry in channel.guild.audit_logs(
-                limit=1, action=discord.AuditLogAction.webhook_create
+        async for entry in channel.guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.webhook_create
+        ):
+            
+            if (
+                not entry.user.id in wlbotsdata[0]["Bots"]
+                and entry.user != channel.guild.owner
+                and enabled
+                and entry.user.bot
             ):
-                w = gdata("vega", "wlbots")
-                if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != channel.guild.owner
-                    and enabled
-                    and entry.user.bot
-                    and not str(entry.user.id) in dop
-                ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}\n\n**{get_language(channel.guild.id,'Информация о боте:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
-                        )
+                if channel.guild.id in ignorebotsdata:
+                    if "rights" in ignorebotsdata[channel.guild.id]:
+                        if entry.user.id not in ignorebotsdata[channel.guild.id]["rights"]:
+                            vega = client.get_guild(channel.guild.id).me
+                            try:
+                                if vega.top_role >= entry.user.top_role:
+                                    await channel.webhook.delete(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                                    )
+                            except:
+                                await channel.webhook.delete(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                                )
+                            if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[channel.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(channel.guild.id).me
                         try:
-                            await client.get_channel(
-                                int(lc[str(channel.guild.id)])
-                            ).send(embed=embed)
+                            if vega.top_role >= entry.user.top_role:
+                                await channel.webhook.delete(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                                )
+                        except:
+                            await channel.webhook.delete(
+                                reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                            )
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+                else:
+                    vega = client.get_guild(channel.guild.id).me
+                    try:
+                        if vega.top_role >= entry.user.top_role:
+                            await channel.webhook.delete(
+                                reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                            )
+                    except:
+                        await channel.webhook.delete(
+                            reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                        )
+                    if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            await entry.user.ban(
+                                reason=f"{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Создание вебхука!')}",
+                                color=0xFCC21B,
+                            )
+                            if entry.user.public_flags.http_interactions_bot:
+                                http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                            else:
+                                http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                            if entry.user.public_flags.verified_bot:
+                                verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                            else:
+                                verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                            if entry.user.public_flags.spammer:
+                                spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                            else:
+                                spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                            embed.add_field(
+                                name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                inline=False,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(
+                                    int(logchanneldata[channel.guild.id]["logchannel"])
+                                ).send(embed=embed)
+                            except:
+                                pass
+                            return
                         except:
                             pass
-                    except:
-                        pass
-
-                    await channel.webhook.delete()
-        except:
-            pass
-
+        
         # Вебхук удален
-        try:
-            async for entry in channel.guild.audit_logs(
-                limit=1, action=discord.AuditLogAction.webhook_delete
+        async for entry in channel.guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.webhook_delete
+        ):
+            
+            if (
+                not str(entry.user.id) in wlbotsdata[0]["Bots"]
+                and entry.user != channel.guild.owner
+                and enabled
+                and entry.user.bot
             ):
-                w = gdata("vega", "wlbots")
-                if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != channel.guild.owner
-                    and enabled
-                    and entry.user.bot
-                    and not str(entry.user.id) in dop
-                ):
-                    try:
-                        await entry.user.ban(
-                            reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
-                            delete_message_days=1,
-                        )
-                        lc = gdata("vega", "logchannel")
-                        embed = discord.Embed(
-                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')}\n\n**{get_language(channel.guild.id,'Информация о боте:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                            color=0xFCC21B,
-                        )
-                        embed.set_author(
-                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
-                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                        )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
-                        embed.set_footer(
-                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
-                        )
+                if channel.guild.id in ignorebotsdata:
+                    if "rights" in ignorebotsdata[channel.guild.id]:
+                        if entry.user.id not in ignorebotsdata[channel.guild.id]["rights"]:
+                            vega = client.get_guild(channel.guild.id).me
+                            if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[channel.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(channel.guild.id).me
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+                else:
+                    vega = client.get_guild(channel.guild.id).me
+                    if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
                         try:
-                            await client.get_channel(
-                                int(lc[str(channel.guild.id)])
-                            ).send(embed=embed)
+                            await entry.user.ban(
+                                reason=f"{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Удаление вебхука!')}",
+                                color=0xFCC21B,
+                            )
+                            if entry.user.public_flags.http_interactions_bot:
+                                http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                            else:
+                                http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                            if entry.user.public_flags.verified_bot:
+                                verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                            else:
+                                verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                            if entry.user.public_flags.spammer:
+                                spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                            else:
+                                spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                            embed.add_field(
+                                name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                inline=False,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(
+                                    int(logchanneldata[channel.guild.id]["logchannel"])
+                                ).send(embed=embed)
+                            except:
+                                pass
+                            return
                         except:
                             pass
-                    except:
-                        pass
-        except:
-            pass
-
+        
         # Вебхук отредактирован
-        try:
-            async for entry in channel.guild.audit_logs(
-                limit=1, action=discord.AuditLogAction.webhook_update
+        async for entry in channel.guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.webhook_update
+        ):
+            
+            if (
+                not str(entry.user.id) in wlbotsdata[0]["Bots"]
+                and entry.user != channel.guild.owner
+                and enabled
+                and entry.user.bot
             ):
-                w = gdata("vega", "wlbots")
-                if (
-                    not str(entry.user.id) in w[str("Bots")]
-                    and entry.user != channel.guild.owner
-                    and enabled
-                    and entry.user.bot
-                    and not str(entry.user.id) in dop
-                ):
+                if channel.guild.id in ignorebotsdata:
+                    if "rights" in ignorebotsdata[channel.guild.id]:
+                        if entry.user.id not in ignorebotsdata[channel.guild.id]["rights"]:
+                            vega = client.get_guild(channel.guild.id).me
+                            if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                                try:
+                                    await entry.user.ban(
+                                        reason=f"{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    
+                                    embed = discord.Embed(
+                                        description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024))
+                                    embed.set_footer(
+                                        text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[channel.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
+                                except:
+                                    pass
+                    else:
+                        vega = client.get_guild(channel.guild.id).me
+                        if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                            try:
+                                await entry.user.ban(
+                                    reason=f"{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                    delete_message_days=1,
+                                )
+                                
+                                embed = discord.Embed(
+                                    description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')}",
+                                    color=0xFCC21B,
+                                )
+                                if entry.user.public_flags.http_interactions_bot:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                                else:
+                                    http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                                if entry.user.public_flags.verified_bot:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                else:
+                                    verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                if entry.user.public_flags.spammer:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                else:
+                                    spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                embed.add_field(
+                                    name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                    value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                    inline=False,
+                                )
+                                embed.set_author(
+                                    name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                )
+                                embed.set_thumbnail(
+                                    url=entry.user.avatar.replace(size=1024))
+                                embed.set_footer(
+                                    text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                                )
+                                try:
+                                    await client.get_channel(
+                                        int(logchanneldata[channel.guild.id]["logchannel"])
+                                    ).send(embed=embed)
+                                except:
+                                    pass
+                                return
+                            except:
+                                pass
+                else:
+                    vega = client.get_guild(channel.guild.id).me
+                    if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                        try:
+                            await entry.user.ban(
+                                reason=f"{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                                delete_message_days=1,
+                            )
+                            
+                            embed = discord.Embed(
+                                description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')}",
+                                color=0xFCC21B,
+                            )
+                            if entry.user.public_flags.http_interactions_bot:
+                                http_interactions_bot_bot = f"{get_language(channel.guild.id,'Использует только HTTP взаимодействия')}"
+                            else:
+                                http_interactions_bot_bot = f"{get_language(channel.guild.id,'Не использует HTTP взаимодействия')}"
+                            if entry.user.public_flags.verified_bot:
+                                verification_bot = f"{get_language(channel.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                            else:
+                                verification_bot = f"{get_language(channel.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                            if entry.user.public_flags.spammer:
+                                spamm_bot = f"{get_language(channel.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                            else:
+                                spamm_bot = f"{get_language(channel.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                            embed.add_field(
+                                name=f":information_source: {get_language(channel.guild.id,'Информация о боте:')}",
+                                value=f"{http_interactions_bot_bot}\n**{get_language(channel.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(channel.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(channel.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(channel.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                inline=False,
+                            )
+                            embed.set_author(
+                                name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                            )
+                            embed.set_thumbnail(
+                                url=entry.user.avatar.replace(size=1024))
+                            embed.set_footer(
+                                text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                            )
+                            try:
+                                await client.get_channel(
+                                    int(logchanneldata[channel.guild.id]["logchannel"])
+                                ).send(embed=embed)
+                            except:
+                                pass
+                            return
+                        except:
+                            pass
+
+
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[channel.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            enabled_2 = editserverdata[channel.guild.id]["enabled"]
+        except KeyError:
+            enabled_2 = False
+        # Вебхук создан
+        async for entry in channel.guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.webhook_create
+        ):
+            if (
+                entry.user != channel.guild.owner
+                and enabled
+                and enabled_2
+                and not entry.user.bot
+            ):
+                vega = client.get_guild(channel.guild.id).me
+                try:
+                    if vega.top_role >= entry.user.top_role:
+                        await channel.webhook.delete(
+                            reason=f"{get_language(channel.guild.id,'[AntiCrash] Создание вебхука!')}",
+                        )
+                        # await channel.webhooks()
+                except:
+                    await channel.webhook.delete(
+                        reason=f"{get_language(channel.guild.id,'[AntiCrash] Создание вебхука!')}",
+                    )
+                    # await webhooks()
+                if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
                     try:
+                        with open('json/msg_appeal.json', 'r') as f:
+                            ma = json.load(f)
+                        text = ma[str(channel.guild.id)]["appeal"]
+                        embed = discord.Embed(
+                            title=f"{get_language(channel.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                            color=0xFF2B2B,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'На сервере:')}",
+                            value=f"{channel.guild.name}",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Модератором:')}",
+                            value=f"VEGA ⦡#7724",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'По причине:')}",
+                            value=f"{get_language(channel.guild.id,'[AntiCrash] Создание вебхука!')}\n`{get_language(channel.guild.id,'Редактирование сервера запрещено!')}`",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Владелец сервера:')}",
+                            value=f"{channel.guild.owner}",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Апелляция:')}",
+                            value=f"{text}",
+                            inline=False,
+                        )
+                        await entry.user.send(embed=embed)
                         await entry.user.ban(
-                            reason=f"{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}",
+                            reason=f"{get_language(channel.guild.id,'[AntiCrash] Создание вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}",
                             delete_message_days=1,
                         )
-                        lc = gdata("vega", "logchannel")
+                        
                         embed = discord.Embed(
-                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(channel.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(channel.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiBot] Редактирование вебхука!')}\n\n**{get_language(channel.guild.id,'Информация о боте:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiCrash] Создание вебхука!')}\n\n**{get_language(channel.guild.id,'Информация об участнике:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
                             color=0xFCC21B,
                         )
                         embed.set_author(
-                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiBot')}",
+                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiCrash')}",
                             icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
                         )
-                        embed.set_thumbnail(url=entry.user.avatar.replace(size=1024))
+                        embed.set_thumbnail(
+                            url=entry.user.avatar.replace(size=1024)
+                        )
                         embed.set_footer(
-                            text=f"{get_language(channel.guild.id,'ID бота:')} {entry.user.id}"
+                            text=f"{get_language(channel.guild.id,'ID участника:')} {entry.user.id}"
                         )
                         try:
                             await client.get_channel(
-                                int(lc[str(channel.guild.id)])
+                                int(logchanneldata[channel.guild.id]["logchannel"])
                             ).send(embed=embed)
                         except:
                             pass
+                        return
                     except:
                         pass
-        except:
-            pass
+        # Вебхук удален
+        async for entry in channel.guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.webhook_delete
+        ):
+            if (
+                entry.user != channel.guild.owner
+                and enabled
+                and enabled_2
+                and not entry.user.bot
+            ):
+                vega = client.get_guild(channel.guild.id).me
+                if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                    try:
+                        with open('json/msg_appeal.json', 'r') as f:
+                            ma = json.load(f)
+                        text = ma[str(channel.guild.id)]["appeal"]
+                        embed = discord.Embed(
+                            title=f"{get_language(channel.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                            color=0xFF2B2B,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'На сервере:')}",
+                            value=f"{channel.guild.name}",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Модератором:')}",
+                            value=f"VEGA ⦡#7724",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'По причине:')}",
+                            value=f"{get_language(channel.guild.id,'[AntiCrash] Удаление вебхука!')}\n`{get_language(channel.guild.id,'Редактирование сервера запрещено!')}`",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Владелец сервера:')}",
+                            value=f"{channel.guild.owner}",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Апелляция:')}",
+                            value=f"{text}",
+                            inline=False,
+                        )
+                        await entry.user.send(embed=embed)
+                        await entry.user.ban(
+                            reason=f"{get_language(channel.guild.id,'[AntiCrash] Удаление вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}",
+                            delete_message_days=1,
+                        )
+                        
+                        embed = discord.Embed(
+                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiCrash] Удаление вебхука!')}\n\n**{get_language(channel.guild.id,'Информация об участнике:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                            color=0xFCC21B,
+                        )
+                        embed.set_author(
+                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiCrash')}",
+                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                        )
+                        embed.set_thumbnail(
+                            url=entry.user.avatar.replace(size=1024)
+                        )
+                        embed.set_footer(
+                            text=f"{get_language(channel.guild.id,'ID участника:')} {entry.user.id}"
+                        )
+                        try:
+                            await client.get_channel(
+                                int(logchanneldata[channel.guild.id]["logchannel"])
+                            ).send(embed=embed)
+                        except:
+                            pass
+                        return
+                    except:
+                        pass
+        # Вебхук отредактирован
+        async for entry in channel.guild.audit_logs(
+            limit=1, action=discord.AuditLogAction.webhook_update
+        ):
+            if (
+                entry.user != channel.guild.owner
+                and enabled
+                and enabled_2
+                and not entry.user.bot
+            ):
+                vega = client.get_guild(channel.guild.id).me
+                if entry.user in channel.guild.members and vega.top_role >= entry.user.top_role:
+                    try:
+                        with open('json/msg_appeal.json', 'r') as f:
+                            ma = json.load(f)
+                        text = ma[str(channel.guild.id)]["appeal"]
+                        embed = discord.Embed(
+                            title=f"{get_language(channel.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                            color=0xFF2B2B,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'На сервере:')}",
+                            value=f"{channel.guild.name}",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Модератором:')}",
+                            value=f"VEGA ⦡#7724",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'По причине:')}",
+                            value=f"{get_language(channel.guild.id,'[AntiCrash] Редактирование вебхука!')}\n`{get_language(channel.guild.id,'Редактирование сервера запрещено!')}`",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Владелец сервера:')}",
+                            value=f"{channel.guild.owner}",
+                            inline=False,
+                        )
+                        embed.add_field(
+                            name=f"{get_language(channel.guild.id,'Апелляция:')}",
+                            value=f"{text}",
+                            inline=False,
+                        )
+                        await entry.user.send(embed=embed)
+                        await entry.user.ban(
+                            reason=f"{get_language(channel.guild.id,'[AntiCrash] Редактирование вебхука!')} {get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}",
+                            delete_message_days=1,
+                        )
+                        
+                        embed = discord.Embed(
+                            description=f"{get_language(channel.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(channel.guild.id,'Причина:')}**\n{get_language(channel.guild.id,'[AntiCrash] Редактирование вебхука!')}\n\n**{get_language(channel.guild.id,'Информация об участнике:')}**\n{get_language(channel.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                            color=0xFCC21B,
+                        )
+                        embed.set_author(
+                            name=f"{entry.user} {get_language(channel.guild.id,'был забанен функцией AntiCrash')}",
+                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                        )
+                        embed.set_thumbnail(
+                            url=entry.user.avatar.replace(size=1024)
+                        )
+                        embed.set_footer(
+                            text=f"{get_language(channel.guild.id,'ID участника:')} {entry.user.id}"
+                        )
+                        try:
+                            await client.get_channel(
+                                int(logchanneldata[channel.guild.id]["logchannel"])
+                            ).send(embed=embed)
+                        except:
+                            pass
+                        return
+                    except:
+                        pass
 
 
 # Логи бота
@@ -4988,7 +6985,8 @@ async def on_guild_remove(guild):
                 description=f"**Сервер:** {guild.name}\n**ID сервера:** {guild.id}\n**Количество участников:** {len(guild.members) - 1}\n**Владелец:** {owner}\n**ID Владельца:** {owner.id}",
                 color=discord.Colour.red()
             )
-            embed.set_thumbnail(url=guild.icon)
+            if guild.icon != None:
+                embed.set_thumbnail(url=guild.icon)
             await client.get_channel(811963689677619230).send(embed=embed)
         except:
             pass
@@ -4996,6 +6994,7 @@ async def on_guild_remove(guild):
         pass
 
 
+# Кик пользователя
 @client.event
 async def on_member_remove(member):
     try:
@@ -5005,155 +7004,371 @@ async def on_member_remove(member):
     if enabled:
         pass
     else:
-        data = gdata("vega", "antibot")
+        # Антибот
         try:
-            enabled = data[str(member.guild.id)]
+            enabled = antibotdata[member.guild.id]["enabled"]
         except KeyError:
             enabled = False
-        if member.bot:
-            lc = gdata("vega", "logchannel")
-            # p = gdata('vega', 'passbots')
-            """try:
-                # Проверка пропуска
-                if str(member.id) in p[str(member.guild.id)]:
-                    p = gdata('vega', 'passbots')
-                    p.update({str(member.guild.id):p[str(member.guild.id)].replace(str(f"<@!{member.id}>, "), '')})
-                    wdata('vega', 'passbots', p)
-                    embed = discord.Embed(color=0xcc1a1d)
-                    embed.set_author(name=f"{get_language(member.guild.id, 'Пропуск')} {member} {get_language(member.guild.id, 'истек!')}", icon_url="https://cdn.discordapp.com/attachments/713751423128698950/861577473997537311/ticket.png")
-                    embed.set_footer(text=f'ID: {member.id}')
-                    try:
-                        await client.get_channel(int(lc[str(member.guild.id)])).send(embed=embed)
-                    except:
-                        pass
-                else:
+        
+        """p = gdata('vega', 'passbots')
+        try:
+            # Проверка пропуска
+            if str(member.id) in p[str(member.guild.id)]:
+                p = gdata('vega', 'passbots')
+                p.update({str(member.guild.id):p[str(member.guild.id)].replace(str(f"<@!{member.id}>, "), '')})
+                wdata('vega', 'passbots', p)
+                embed = discord.Embed(color=0xcc1a1d)
+                embed.set_author(name=f"{get_language(member.guild.id, 'Пропуск')} {member} {get_language(member.guild.id, 'истек!')}", icon_url="https://cdn.discordapp.com/attachments/713751423128698950/861577473997537311/ticket.png")
+                embed.set_footer(text=f'ID: {member.id}')
+                try:
+                    await client.get_channel(int(logchanneldata[member.guild.id]["logchannel"])).send(embed=embed)
+                except:
                     pass
-            except:
-                pass"""
-
-            # Кик пользователя
-            wl = gdata("vega", "ignorebots")
-            if str(member.guild.id) in wl:
-                dop = wl[str(member.guild.id)]
             else:
-                dop = ""
-            try:
-                async for entry in member.guild.audit_logs(
-                    limit=1, action=discord.AuditLogAction.kick
+                pass
+        except:
+            pass"""
+
+
+        # Кик пользователя
+        try:
+            async for entry in member.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.kick
+            ):
+                
+                
+                if (
+                    not entry.user.id in wlbotsdata[0]["Bots"]
+                    and entry.user != member.guild.owner
+                    and enabled
+                    and entry.user.bot
                 ):
-                    w = gdata("vega", "wlbots")
-                    lc = gdata("vega", "logchannel")
-                    if (
-                        not str(entry.user.id) in w[str("Bots")]
-                        and entry.user != member.guild.owner
-                        and enabled
-                        and entry.user.bot
-                        and not str(entry.user.id) in dop
-                    ):
-                        if enabled:
-                            try:
-                                await entry.user.ban(
-                                    reason=f"{get_language(member.guild.id,'[AntiBot] Кик пользователя!')} {get_language(member.guild.id,'Подозрительные действия со стороны бота!')}",
-                                    delete_message_days=1,
-                                )
-                                embed = discord.Embed(
-                                    description=f"{get_language(member.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot] Кик пользователя!')}\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
-                                    color=0xFCC21B,
-                                )
-                                embed.set_author(
-                                    name=f"{entry.user} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
-                                    icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
-                                )
-                                embed.set_thumbnail(
-                                    url=entry.user.avatar.replace(size=1024)
-                                )
-                                embed.set_footer(
-                                    text=f"{get_language(member.guild.id,'ID бота:')} {entry.user.id}"
-                                )
+                    if member.guild.id in ignorebotsdata:
+                        if "rights" in ignorebotsdata[member.guild.id]:
+                            if entry.user.id not in ignorebotsdata[member.guild.id]["rights"]:
+                                vega = client.get_guild(member.guild.id).me
+                                if entry.user in member.guild.members and vega.top_role >= entry.user.top_role:
+                                    if enabled:
+                                        try:
+                                            await entry.user.ban(
+                                                reason=f"{get_language(member.guild.id,'[AntiBot] Кик пользователя!')} {get_language(member.guild.id,'Подозрительные действия со стороны бота!')}",
+                                                delete_message_days=1,
+                                            )
+                                            embed = discord.Embed(
+                                                description=f"{get_language(member.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot] Кик пользователя!')}",
+                                                color=0xFCC21B,
+                                            )
+                                            if entry.user.public_flags.http_interactions_bot:
+                                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                            else:
+                                                http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                            if entry.user.public_flags.verified_bot:
+                                                verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                            else:
+                                                verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                            if entry.user.public_flags.spammer:
+                                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                            else:
+                                                spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                            embed.add_field(
+                                                name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                                value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                                inline=False,
+                                            )
+                                            embed.set_author(
+                                                name=f"{entry.user} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                                icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                            )
+                                            embed.set_thumbnail(
+                                                url=entry.user.avatar.replace(size=1024)
+                                            )
+                                            embed.set_footer(
+                                                text=f"{get_language(member.guild.id,'ID бота:')} {entry.user.id}"
+                                            )
+                                            try:
+                                                await client.get_channel(
+                                                    int(logchanneldata[member.guild.id]["logchannel"])
+                                                ).send(embed=embed)
+                                            except:
+                                                pass
+                                            return
+                                        except:
+                                            pass
+                        else:
+                            vega = client.get_guild(member.guild.id).me
+                            if entry.user in member.guild.members and vega.top_role >= entry.user.top_role:
+                                if enabled:
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(member.guild.id,'[AntiBot] Кик пользователя!')} {get_language(member.guild.id,'Подозрительные действия со стороны бота!')}",
+                                            delete_message_days=1,
+                                        )
+                                        embed = discord.Embed(
+                                            description=f"{get_language(member.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot] Кик пользователя!')}",
+                                            color=0xFCC21B,
+                                        )
+                                        if entry.user.public_flags.http_interactions_bot:
+                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                        else:
+                                            http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                        if entry.user.public_flags.verified_bot:
+                                            verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                        else:
+                                            verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                        if entry.user.public_flags.spammer:
+                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                        else:
+                                            spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                        embed.add_field(
+                                            name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                            value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                            inline=False,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024)
+                                        )
+                                        embed.set_footer(
+                                            text=f"{get_language(member.guild.id,'ID бота:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[member.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                        return
+                                    except:
+                                        pass
+                    else:
+                        vega = client.get_guild(member.guild.id).me
+                        if entry.user in member.guild.members and vega.top_role >= entry.user.top_role:
+                            if enabled:
                                 try:
-                                    await client.get_channel(
-                                        int(lc[str(member.guild.id)])
-                                    ).send(embed=embed)
+                                    await entry.user.ban(
+                                        reason=f"{get_language(member.guild.id,'[AntiBot] Кик пользователя!')} {get_language(member.guild.id,'Подозрительные действия со стороны бота!')}",
+                                        delete_message_days=1,
+                                    )
+                                    embed = discord.Embed(
+                                        description=f"{get_language(member.guild.id,'Подозрительные действия со стороны бота!')}\n{get_language(member.guild.id,'**Игнорировать бота:**')} `{prefix}ignore add {entry.user.id}`\n{get_language(member.guild.id,'**Выдать пропуск:**')} `{prefix}pass add {entry.user.id}`\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiBot] Кик пользователя!')}",
+                                        color=0xFCC21B,
+                                    )
+                                    if entry.user.public_flags.http_interactions_bot:
+                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Использует только HTTP взаимодействия')}"
+                                    else:
+                                        http_interactions_bot_bot = f"{get_language(member.guild.id,'Не использует HTTP взаимодействия')}"
+                                    if entry.user.public_flags.verified_bot:
+                                        verification_bot = f"{get_language(member.guild.id,'<:verified_BOT1:842449509682118676><:verified_BOT2:842449509351161915>')}"
+                                    else:
+                                        verification_bot = f"{get_language(member.guild.id,'<:bot_ru1:948668130123735100><:bot_ru2:948668130127933470>')}"
+                                    if entry.user.public_flags.spammer:
+                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_check_mark:821700784927801394> Да')}"
+                                    else:
+                                        spamm_bot = f"{get_language(member.guild.id,'<a:vega_x:810843492266803230> Нет')}"
+                                    embed.add_field(
+                                        name=f":information_source: {get_language(member.guild.id,'Информация о боте:')}",
+                                        value=f"{http_interactions_bot_bot}\n**{get_language(member.guild.id,'Верификация:')}** {verification_bot}\n**{get_language(member.guild.id,'Спамер?:')}** {spamm_bot}\n**{get_language(member.guild.id,'Присоединился:')}** <t:{int(entry.user.joined_at.timestamp())}:D> *(<t:{int(entry.user.joined_at.timestamp())}:R>)*\n**{get_language(member.guild.id,'Создан:')}** <t:{int(entry.user.created_at.timestamp())}:D> *(<t:{int(entry.user.created_at.timestamp())}:R>)*",
+                                        inline=False,
+                                    )
+                                    embed.set_author(
+                                        name=f"{entry.user} {get_language(member.guild.id,'был забанен функцией AntiBot')}",
+                                        icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                    )
+                                    embed.set_thumbnail(
+                                        url=entry.user.avatar.replace(size=1024)
+                                    )
+                                    embed.set_footer(
+                                        text=f"{get_language(member.guild.id,'ID бота:')} {entry.user.id}"
+                                    )
+                                    try:
+                                        await client.get_channel(
+                                            int(logchanneldata[member.guild.id]["logchannel"])
+                                        ).send(embed=embed)
+                                    except:
+                                        pass
+                                    return
                                 except:
                                     pass
-                            except:
-                                pass
+                
+                try:
+                    await member.guild.fetch_ban(member)
+                    return
+                except discord.NotFound:
+                    pass
+                    """if not entry.user == client.get_user(795551166393876481):
+                        embed = discord.Embed(
+                            description=f"**{get_language(member.guild.id,'Пользователем:')}** {entry.user}\n**ID:** `{entry.user.id}`\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Присоединился:')} <t:{int(member.joined_at.timestamp())}:F>\n{get_language(member.guild.id,'Создан:')} <t:{int(member.created_at.timestamp())}:F>",
+                            color=0xF1A019,
+                        )
+                        embed.set_author(
+                            name=f"{member} {get_language(member.guild.id,'кикнут!')}",
+                            icon_url="https://i.postimg.cc/vZ12gJY4/kick.png",
+                        )
+                        embed.set_thumbnail(url=member.avatar.replace(size=1024))
+                        embed.set_footer(
+                            text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
+                        )
+                        try:
+                            await client.get_channel(
+                                int(logchanneldata[member.guild.id]["logchannel"])
+                            ).send(embed=embed)
+                        except:
+                            pass"""
+        except:
+            pass
 
-                    try:
-                        await member.guild.fetch_ban(member)
-                        return
-                    except discord.NotFound:
-                        if not entry.user == client.get_user(795551166393876481):
-                            embed = discord.Embed(
-                                description=f"**{get_language(member.guild.id,'Пользователем:')}** {entry.user}\n**ID:** `{entry.user.id}`\n\n**{get_language(member.guild.id,'Информация о боте:')}**\n{get_language(member.guild.id,'Присоединился:')} <t:{int(member.joined_at.timestamp())}:F>\n{get_language(member.guild.id,'Создан:')} <t:{int(member.created_at.timestamp())}:F>",
-                                color=0xF1A019,
-                            )
-                            embed.set_author(
-                                name=f"{member} {get_language(member.guild.id,'кикнут!')}",
-                                icon_url="https://i.postimg.cc/vZ12gJY4/kick.png",
-                            )
-                            embed.set_thumbnail(url=member.avatar.replace(size=1024))
-                            embed.set_footer(
-                                text=f"{get_language(member.guild.id,'ID бота:')} {member.id}"
-                            )
-                            try:
-                                await client.get_channel(
-                                    int(lc[str(member.guild.id)])
-                                ).send(embed=embed)
-                            except:
-                                pass
-            except:
-                pass
+        # Антикраш участников
+        try:
+            enabled = user_anticrashdata[member.guild.id]["enabled"]
+        except KeyError:
+            enabled = False
+        try:
+            try:
+                enabled_2 = editserverdata[member.guild.id]["enabled"]
+            except KeyError:
+                enabled_2 = False
+
+            async for entry in member.guild.audit_logs(
+                limit=1, action=discord.AuditLogAction.kick
+            ):
+                if (
+                    entry.user != member.guild.owner
+                    and enabled
+                    and enabled_2
+                    and not entry.user.bot
+                ):
+                    if member.guild.id in wluserdata:
+                        if "members" in wluserdata[member.guild.id]:
+                            if entry.user.id not in wluserdata[member.guild.id]["members"]:
+                                vega = client.get_guild(member.guild.id).me
+                                if entry.user in member.guild.members and vega.top_role >= entry.user.top_role:
+                                    with open('json/msg_appeal.json', 'r') as f:
+                                        ma = json.load(f)
+                                    text = ma[str(member.guild.id)]["appeal"]
+                                    embed = discord.Embed(
+                                        title=f"{get_language(member.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                        color=0xFF2B2B,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(member.guild.id,'На сервере:')}",
+                                        value=f"{member.guild.name}",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(member.guild.id,'Модератором:')}",
+                                        value=f"VEGA ⦡#7724",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(member.guild.id,'По причине:')}",
+                                        value=f"{get_language(member.guild.id,'[AntiCrash] Кик пользователя!')}\n`{get_language(member.guild.id,'Вас нет в белом списке!')}`",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(member.guild.id,'Владелец сервера:')}",
+                                        value=f"{member.guild.owner}",
+                                        inline=False,
+                                    )
+                                    embed.add_field(
+                                        name=f"{get_language(member.guild.id,'Апелляция:')}",
+                                        value=f"{text}",
+                                        inline=False,
+                                    )
+                                    try:
+                                        await entry.user.send(embed=embed)
+                                    except:
+                                        pass
+
+                                    try:
+                                        await entry.user.ban(
+                                            reason=f"{get_language(member.guild.id,'[AntiCrash] Кик пользователя!')} {get_language(member.guild.id,'Подозрительные действия со стороны участника!')}",
+                                            delete_message_days=1,
+                                        )
+                                        
+                                        embed = discord.Embed(
+                                            description=f"{get_language(member.guild.id,'Подозрительные действия со стороны участника!')}\n\n**{get_language(member.guild.id,'Причина:')}**\n{get_language(member.guild.id,'[AntiCrash] Кик пользователя!')}\n\n**{get_language(member.guild.id,'Информация об участнике:')}**\n{get_language(member.guild.id,'Создан:')} <t:{int(entry.user.created_at.timestamp())}:F>",
+                                            color=0xFCC21B,
+                                        )
+                                        embed.set_author(
+                                            name=f"{entry.user} {get_language(member.guild.id,'был забанен функцией AntiCrash')}",
+                                            icon_url="https://i.postimg.cc/QxsNmj2Z/attention.gif",
+                                        )
+                                        embed.set_thumbnail(
+                                            url=entry.user.avatar.replace(size=1024)
+                                        )
+                                        embed.set_footer(
+                                            text=f"{get_language(member.guild.id,'ID участника:')} {entry.user.id}"
+                                        )
+                                        try:
+                                            await client.get_channel(
+                                                int(logchanneldata[member.guild.id]["logchannel"])
+                                            ).send(embed=embed)
+                                        except:
+                                            pass
+                                    except:
+                                        pass
+                try:
+                    await member.guild.fetch_ban(member)
+                    return
+                except discord.NotFound:
+                    pass
+        except:
+            pass
 
 
-# Авто загрузка белого списка ботов на канал
-# VEGA - 806889107594674236
-# @client.event
-# async def autogetjson():
-#    while True:
-#        await asyncio.sleep(7200) #каждые 2 часа загружает файлы
-#        a = client.get_channel(806889107594674236)
-#        with open('message.txt', 'w') as f:
-#            f.write(requests.get('https://vegabot.xyz/vegabot/data/whitelist.data').text)
-#        await a.send(file=discord.File('message.txt'))
+"""# Авто загрузка белого списка ботов на канал
+ VEGA - 806889107594674236
+ @client.event
+ async def autogetjson():
+    while True:
+        await asyncio.sleep(7200) #каждые 2 часа загружает файлы
+        a = client.get_channel(806889107594674236)
+        with open('message.txt', 'w') as f:
+            f.write(requests.get('https://vega-bot.ru/data/whitelist.data').text)
+        await a.send(file=discord.File('message.txt'))
 
 
-#        await a.send(file=discord.File(f'json/antibot.json'))
-#        await a.send(file=discord.File(f'json/channel_rights.json'))
-#        await a.send(file=discord.File(f'json/ignorebots.json'))
-#        await a.send(file=discord.File(f'json/antiinvite.json'))
-#        await a.send(file=discord.File(f'json/logchannel.json'))
+        await a.send(file=discord.File(f'json/antibot.json'))
+        await a.send(file=discord.File(f'json/channel_rights.json'))
+        await a.send(file=discord.File(f'json/ignorebots.json'))
+        await a.send(file=discord.File(f'json/antiinvite.json'))
+        await a.send(file=discord.File(f'json/logchannel.json'))
 
-# client.loop.create_task(autogetjson())
+ client.loop.create_task(autogetjson())
 
 
 # Скачать json
 # VEGA - 806889107594674236
 # тест - 806889358740815895
-# @client.command()
-# @commands.guild_only()
-# async def djson(ctx):
-#    if ctx.author.id == 351020816466575372:
-#        for file in os.listdir('json/'):
-#            await client.get_channel(806889107594674236).send(file=discord.File(f'json/{file}'))
+ @client.command()
+ @commands.guild_only()
+ async def djson(ctx):
+    if ctx.author.id == 351020816466575372:
+        for file in os.listdir('json/'):
+            await client.get_channel(806889107594674236).send(file=discord.File(f'json/{file}'))
 
 
 # Отправить сообщение пользователю в лс
-# @client.command()
-# @commands.guild_only()
-# async def bd(ctx, user:discord.Member, *, message):
-#    if ctx.author.id == 351020816466575372:
-#        msg = ctx.message
-#        try:
-#            embed = discord.Embed(title='🛠 Сообщение от Разработчика:', description=f'{message}', color=0x1e1e1e)
-#            await user.send(embed=embed)
-#            await msg.add_reaction('<a:vega_check_mark:821700784927801394>')
-#        except:
-#            await msg.add_reaction('<a:vega_x:810843492266803230>')
+ @client.command()
+ @commands.guild_only()
+ async def bd(ctx, user:discord.Member, *, message):
+    if ctx.author.id == 351020816466575372:
+        msg = ctx.message
+        try:
+            embed = discord.Embed(title='🛠 Сообщение от Разработчика:', description=f'{message}', color=0x1e1e1e)
+            await user.send(embed=embed)
+            await msg.add_reaction('<a:vega_check_mark:821700784927801394>')
+        except:
+            await msg.add_reaction('<a:vega_x:810843492266803230>')
 
 
-# ban_image = ['https://cdn.discordapp.com/attachments/713751423128698950/804296020149141534/unknown.png']
+ ban_image = ['https://cdn.discordapp.com/attachments/713751423128698950/804296020149141534/unknown.png']"""
 
+
+# Работа с сообщениями
 try:
     asp = {}
 
@@ -5176,26 +7391,21 @@ try:
                     description=f"{get_language(msg.guild.id,'Префикс на данном сервере:')} `{prefix}`",
                     color=0x2F3136,
                 )
-                await msg.channel.send(embed=embed, delete_after=12.0)
+                await msg.reply(embed=embed, delete_after=12.0)
 
-            # Удаляет сообщения бота, который оффлайн.
-            wl = gdata("vega", "ignorebots")
-            if str(msg.id) in wl:
-                dop = wl[str(msg.id)]
-            else:
-                dop = ""
-            amsgdata = gdata("vega", "antimsg")
+            # Удаляет сообщения бота, который оффлайн. Нужно получить разрешение аппликации
+            """amsgdata = gdata("vega", "antimsg")
             try:
-                enabled = amsgdata[str(msg.guild.id)]
+                enabled = amsgdata[str(msg.id)]  # Было msg.guild.id
             except KeyError:
                 enabled = False
             if enabled:
                 try:
                     if user.bot:
-                        w = gdata("vega", "wlbots")
+                        
                         if (
-                            not str(user.id) in w[str("Bots")]
-                            and not str(user.id) in dop
+                            not user.id in wlbotsdata[0]["Bots"]
+                            and user.id not in ignorebotsdata[msg.id]["rights"]
                         ):
                             if msg.author.status == discord.Status.offline:
                                 await msg.delete()
@@ -5206,12 +7416,10 @@ try:
                 except:
                     pass
             else:
-                pass
+                pass"""
 
-        # Антиприглпшения на сервер!
-        #    with open('json/antiinvite.json', 'r') as f:
-        #        data = json.load(f)
-        try:
+        # Антиприглпшения на сервер! Нужно получить разрешение аппликации
+        """try:
             enabled = deactivatedata[0]["Option"]
         except KeyError:
             enabled = False
@@ -5220,7 +7428,7 @@ try:
         else:
             data = gdata("vega", "antiinvite")
             try:
-                enabled = data[str(msg.guild.id)]
+                enabled = data[str(msg.id)]
             except KeyError:
                 enabled = False
             if not msg.author.bot:
@@ -5231,7 +7439,7 @@ try:
                 ):
                     if msg.author != msg.guild.owner:
                         if enabled:
-                            await msg.delete()
+                            await msg.delete()"""
                         # embed = discord.Embed(title=f':warning: Пиар серверов Discord запрещен!', color=0xfcc21b)
                         # await msg.channel.send(embed=embed, delete_after=8.0)
 
@@ -5347,7 +7555,7 @@ except:
                     embed.set_thumbnail(url=msg.author.avatar.replace(size=1024))
                     embed.set_footer(text=f"{get_language(msg.guild.id,'ID бота:')} {msg.author.id}")
                     try:
-                        await client.get_channel(int(lc[str(msg.guild.id)])).send(embed=embed)
+                        await client.get_channel(int(logchanneldata[msg.guild.id]["logchannel"])).send(embed=embed)
                     except:
                         pass
                 except:
@@ -5364,7 +7572,7 @@ except:
                 embed.set_thumbnail(url=msg.webhook.avatar.replace(size=1024))
                 embed.set_footer(text=f"{get_language(msg.guild.id,'ID вебхука:')} {msg.webhook_id}")
                 try:
-                    await client.get_channel(int(lc[str(msg.guild.id)])).send(embed=embed)
+                    await client.get_channel(int(logchanneldata[msg.guild.id]["logchannel"])).send(embed=embed)
                 except:
                     pass
 

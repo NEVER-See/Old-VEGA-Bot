@@ -1,111 +1,81 @@
-# -*- coding: utf-8 -*-
 import disnake as discord
-import disnake
-from disnake.channel import DMChannel
-from disnake.ext import tasks
-from disnake.utils import get
-from disnake.ext import commands
-import asyncio
-import datetime
-import time
-import random
 import json
-import os
-import re
-import requests
-import pymongo
-import typing
-import aiohttp
-#import word
-#import config
-#from discord import utils
-from random import randint
-import json
+
+# import word
+# import config
+# from discord import utils
 from cache import *
-from urllib.parse import quote_plus
 
 
-#Запуск бота
-#with open("json/config.json", "r", encoding="utf-8") as f:
+# Запуск бота
+# with open("json/config.json", "r", encoding="utf-8") as f:
 #    config = json.load(f)
 
 
-#Для создателей бота
-#async def is_owner(ctx):
+# Для создателей бота
+# async def is_owner(ctx):
 #    if not ctx.author.id in config["owner_ids"]:
 #        await ctx.send("Эта команда доступна только владельцам ботов!")
 #        return False
 #    return True
 
 
-
-#Для MongoDB временно, потом нужно удалить
-try:
-    MDB_key = open('important_information/Tokens/token_MDB.txt', 'r').readline()
-    mongo = pymongo.MongoClient( MDB_key )
-except:
-    print("[ ОШИБКА ]  Нет подключения к MongoDB!\n")
-
-def gdata(db, collection):
-    return mongo[db][collection].find_one()
-
-def wdata(db, collection, data):
-    mongo[db][collection].update(gdata(db, collection), data)
-
-
-
-
-#Проверка языка
+# Проверка языка
 def get_language(id, text):
-    try: language = gdata("vega", "language")[str(id)]
-    except: language = True
+    try:
+        language = languagedata[int(id)]["language"]
+    except KeyError:
+        language = True
 
-    with open("languages/en.json", "r", encoding='utf-8') as f:
+    with open("languages/en.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     if language == False:
-        try: return data[text]
-        except: return text
-    else: return text
+        try:
+            return data[text]
+        except:
+            return text
+    else:
+        return text
 
 
-
-#Проверка канала на разрешение
-async def checkchannel(ctx):
-#    with open('json/channel_rights.json', 'r') as f:
-#        data = json.load(f)
-    data = gdata('vega', 'channel_rights')
-    if not str(ctx.guild.id) in data:
+# Проверка канала на разрешение
+"""async def checkchannel(ctx):
+    #    with open('json/channel_rights.json', 'r') as f:
+    #        data = json.load(f)
+    if ctx.guild.id not in channel_rightsdata:
         return True
-    else:        
-        return str(ctx.channel.id) in data[str(ctx.guild.id)]
+    elif "rights" not in channel_rightsdata[ctx.guild.id]:
+        return True
+    else:
+        return ctx.channel.id in channel_rightsdata[ctx.guild.id]["rights"]
         if not str(ctx.channel.id) in data[str(ctx.guild.id)]:
-            embed = discord.Embed(description=f':warning: Эта команда доступна только в определенных каналах!', color=0xfcc21b)
+            embed = discord.Embed(
+                description=f":warning: Эта команда доступна только в определенных каналах!",
+                color=0xFCC21B,
+            )
             await ctx.send(embed=embed, delete_after=5.0)
             ctx.command.reset_cooldown(ctx)
         else:
             if str(ctx.channel.id) in data[str(ctx.channel.guild.id)]:
-                embed = discord.Embed(description=':warning: Чтобы писать команды, укажите боту канал для команд!\nИспользуйте команду: `v!channel add <#chanel | ID>`', color=0xfcc21b)
-                await ctx.send(embed=embed, delete_after=15.0)
+                embed = discord.Embed(
+                    description=":warning: Чтобы писать команды, укажите боту канал для команд!\nИспользуйте команду: `v!channel add <#chanel | ID>`",
+                    color=0xFCC21B,
+                )
+                await ctx.send(embed=embed, delete_after=15.0)"""
 
 
-
-
-
-#Для эмодзи
+# Для эмодзи
 def convert_em(emoji):
-        if emoji.startswith('<'):
-            emoji = emoji.replace('<:', '')
-            emoji = emoji.replace('<a:', '')
-            emoji = emoji[:-20]
-        else:
-            emoji = emoji.replace(':', '')
-        return emoji
+    if emoji.startswith("<"):
+        emoji = emoji.replace("<:", "")
+        emoji = emoji.replace("<a:", "")
+        emoji = emoji[:-20]
+    else:
+        emoji = emoji.replace(":", "")
+    return emoji
 
 
-
-
-
-#Конвертор времени по языку
+# Конвертор времени по языку
 def convert(time):
     time_convert = {
         "s": 1,
@@ -115,18 +85,15 @@ def convert(time):
         "h": 3600,
         "ч": 3600,
         "d": 86400,
-        "д": 86400
-        }
+        "д": 86400,
+    }
     try:
         return int(time[:-1]) * time_convert[time[-1]]
     except:
         return time
 
 
-
-
-
-#Время в мин часах днях
+# Время в мин часах днях
 def hmsd(ctx, sec: float):
     d = int(sec // 86400)
     h = int((sec % 86400) // 3600)
@@ -137,17 +104,17 @@ def hmsd(ctx, sec: float):
     if h > 0:
         display_h = f"**{h}** {get_language(ctx.guild.id,'ч')} "
     else:
-        display_h = ''
+        display_h = ""
 
     if m > 0:
         display_m = f"**{m}** {get_language(ctx.guild.id,'мин')} "
     else:
-        display_m = ''
+        display_m = ""
 
     if s > 0:
         display_s = f"**{s}** {get_language(ctx.guild.id,'сек')}"
     else:
-        display_s = ''
+        display_s = ""
 
     if sec < 1:
         return f"**{ms}** {get_language(ctx.guild.id,'мс')}"
@@ -161,8 +128,6 @@ def hmsd(ctx, sec: float):
         return f"**{d}** {get_language(ctx.guild.id,'д')} {display_h}{display_m}{display_s}"
 
 
-
-
 def hmsd1(ctx, sec: float):
     d = int(sec // 86400)
     h = int((sec % 86400) // 3600)
@@ -173,17 +138,17 @@ def hmsd1(ctx, sec: float):
     if h > 0:
         display_h = f"{h} {get_language(ctx.guild.id,'ч')} "
     else:
-        display_h = ''
+        display_h = ""
 
     if m > 0:
         display_m = f"{m} {get_language(ctx.guild.id,'мин')} "
     else:
-        display_m = ''
+        display_m = ""
 
     if s > 0:
         display_s = f"{s} {get_language(ctx.guild.id,'сек')}"
     else:
-        display_s = ''
+        display_s = ""
 
     if sec < 1:
         return f"{ms} {get_language(ctx.guild.id,'мс')}"
@@ -197,10 +162,11 @@ def hmsd1(ctx, sec: float):
         return f"{d} {get_language(ctx.guild.id,'д')} {display_h}{display_m}{display_s}"
 
 
-#Заменитель пробелов в ссылке
+# Заменитель пробелов в ссылке
 def urlspotify(s):
     s = s.strip().split(" ")
     return ("%20").join(s)
+
 
 def url_game_search(s):
     s = s.strip().split(" ")

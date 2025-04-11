@@ -1,38 +1,35 @@
-# -*- coding: utf-8 -*-
 import disnake as discord
-from disnake.channel import DMChannel
-from disnake.ext import tasks
-from disnake.utils import get
-import asyncio
-import datetime
-import time
-import random
-import json
-import os
-import re
-import requests
-import pymongo
-import typing
-import aiohttp
-#import word
-#import config
-#from discord import utils
+
+# import word
+# import config
+# from discord import utils
 from disnake.ext import commands
-from random import randint
 from helper import *
 from cache import *
+
+Animal = commands.option_enum(["Don't Delete Any", "Previous 24 Hours", "Previous 7 Days"])
 
 
 class class_ban(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    #Бан пользователя
-    @commands.slash_command(name="ban", description="Ban a user | Забанить пользователя", pass_context = True)
+    # Бан пользователя
+    @commands.slash_command(
+        name="ban", description="Ban a user | Забанить пользователя", pass_context=True
+    )
     @commands.guild_only()
     @commands.bot_has_permissions(ban_members=True, send_messages=True)
     @commands.has_permissions(ban_members=True)
-    async def ban(self, inter, member:discord.User=commands.Param(description="Specify the user or his ID | Укажите пользователя или его ID"), *, reason=None):
+    async def ban(
+        self,
+        inter,
+        member: discord.User = commands.Param(
+            name="user", description="Specify the user or his ID | Укажите пользователя или его ID"
+        ),
+        delete_messages: Animal = commands.Param(description="For what period of time? | За какой период времени?"),
+        reason=None,
+    ):
         ctx = inter
         try:
             enabled = deactivatedata[0]["Option"]
@@ -41,58 +38,115 @@ class class_ban(commands.Cog):
         if enabled:
             pass
         else:
-            if await checkchannel(ctx):
+            if delete_messages is not None:
                 try:
                     user = ctx.author
-                    if member in ctx.guild.members and member != user and member != self.client.user and user.top_role <= member.top_role:
-                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Невозможно забанить пользователя, роль которого выше или равна вашей!')}", color=0xfcc21b)
+                    if (
+                        member in ctx.guild.members
+                        and member != user
+                        and member != self.client.user
+                        and user.top_role <= member.top_role
+                    ):
+                        embed = discord.Embed(
+                            description=f"{get_language(ctx.guild.id,':warning: Невозможно забанить пользователя, роль которого выше или равна вашей!')}",
+                            color=0xFCC21B,
+                        )
                         await ctx.send(embed=embed, ephemeral=True)
                     elif member == user:
-                        embed = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Невозможно забанить себя!')}", color=0xfcc21b)
+                        embed = discord.Embed(
+                            description=f"{get_language(ctx.guild.id,':warning: Невозможно забанить себя!')}",
+                            color=0xFCC21B,
+                        )
                         await ctx.send(embed=embed, ephemeral=True)
                     elif member == self.client.user:
-                        embed = discord.Embed(description=f":warning: {self.client.user.mention} {get_language(ctx.guild.id,'не может себя забанить!')}", color=0xfcc21b)
+                        embed = discord.Embed(
+                            description=f":warning: {self.client.user.mention} {get_language(ctx.guild.id,'не может себя забанить!')}",
+                            color=0xFCC21B,
+                        )
                         await ctx.send(embed=embed, ephemeral=True)
                     else:
-                        banned_users = await ctx.guild.bans()
                         already = False
-                        for ban_entry in banned_users:
+                        for ban_entry in [m async for m in ctx.guild.bans()]:
                             user = ban_entry.user
                             if user == member:
                                 already = True
-                                emb = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Пользователь')} {member} {get_language(ctx.guild.id,'уже в бане!')}", color=0xff2b2b)
+                                emb = discord.Embed(
+                                    description=f"{get_language(ctx.guild.id,':warning: Пользователь')} {member} {get_language(ctx.guild.id,'уже в бане!')}",
+                                    color=0xFF2B2B,
+                                )
                                 await ctx.send(embed=emb, ephemeral=True)
                                 break
-                        
+
                         if not already:
-                            emb = discord.Embed(title=f"{get_language(ctx.guild.id,'<:ban:810927364707713025> Бан')}", color=0xff2b2b)
-                            emb.add_field(name=f"{get_language(ctx.guild.id,'Модератор:')}", value=f'{ctx.user.mention}\n{ctx.user}', inline=True)
-                            emb.add_field(name=f"{get_language(ctx.guild.id,'Нарушитель:')}", value=f'{member.mention}\n{member}', inline=True)
+                            emb = discord.Embed(
+                                title=f"{get_language(ctx.guild.id,'<:ban:810927364707713025> Бан')}",
+                                color=0xFF2B2B,
+                            )
+                            emb.add_field(
+                                name=f"{get_language(ctx.guild.id,'Модератор:')}",
+                                value=f"{ctx.user.mention}\n{ctx.user}",
+                                inline=True,
+                            )
+                            emb.add_field(
+                                name=f"{get_language(ctx.guild.id,'Нарушитель:')}",
+                                value=f"{member.mention}\n{member}",
+                                inline=True,
+                            )
                             if reason != None:
-                                emb.add_field(name=f"{get_language(ctx.guild.id,'Причина:')}", value=reason, inline=False)
-                            emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/713751423128698950/810933957197037588/ban.png')
+                                emb.add_field(
+                                    name=f"{get_language(ctx.guild.id,'Причина:')}",
+                                    value=reason,
+                                    inline=False,
+                                )
+                            if member.avatar != None:
+                                emb.set_thumbnail(
+                                    url=member.avatar.replace(size=1024)
+                                )
 
                             try:
                                 if ctx.guild.get_member(member.id):
-                                    emb1 = discord.Embed(title=f"{get_language(ctx.guild.id,'<:ban:810927364707713025> Вы были забанены:')}", color=0xff2b2b)
-                                    emb1.add_field(name=f"{get_language(ctx.guild.id,'На сервере:')}", value=f'{ctx.guild.name}', inline=False)
-                                    emb1.add_field(name=f"{get_language(ctx.guild.id,'Модератором:')}", value=f'{ctx.user}', inline=False)
+                                    emb1 = discord.Embed(
+                                        title=f"{get_language(ctx.guild.id,'<:ban:810927364707713025> Вы были забанены:')}",
+                                        color=0xFF2B2B,
+                                    )
+                                    emb1.add_field(
+                                        name=f"{get_language(ctx.guild.id,'На сервере:')}",
+                                        value=f"{ctx.guild.name}",
+                                        inline=False,
+                                    )
+                                    emb1.add_field(
+                                        name=f"{get_language(ctx.guild.id,'Модератором:')}",
+                                        value=f"{ctx.user}",
+                                        inline=False,
+                                    )
                                     if reason != None:
-                                        emb1.add_field(name=f"{get_language(ctx.guild.id,'По причине:')}", value=reason, inline=False)
+                                        emb1.add_field(
+                                            name=f"{get_language(ctx.guild.id,'По причине:')}",
+                                            value=reason,
+                                            inline=False,
+                                        )
                                     await member.send(embed=emb1)
                             except:
                                 pass
                             if reason != None:
-                                await ctx.guild.ban(member, reason=reason)
+                                dreason = reason
                             else:
-                                await ctx.guild.ban(member, reason=f"{ctx.author}")
+                                dreason = f"{ctx.author}"
+
+                            if delete_messages == "Don't Delete Any" and dreason:
+                                await ctx.guild.ban(member, delete_message_days=0, reason=dreason)
+                            elif delete_messages == "Previous 24 Hours" and dreason:
+                                await ctx.guild.ban(member, delete_message_days=1, reason=dreason)
+                            elif delete_messages == "Previous 7 Days" and dreason:
+                                await ctx.guild.ban(member, delete_message_days=7, reason=dreason)
                             await ctx.send(embed=emb)
                 except:
-                    embed = discord.Embed(description=f":warning: **ERROR**\n{get_language(ctx.guild.id,'Проверьте права у бота, а так же расположение ролей!')}", color=0xfcc21b)
+                    embed = discord.Embed(
+                        description=f":warning: **ERROR**\n{get_language(ctx.guild.id,'Проверьте права у бота, а так же расположение ролей!')}",
+                        color=0xFCC21B,
+                    )
                     await ctx.send(embed=embed, ephemeral=True)
-            else:
-                embed = discord.Embed(description=f"{get_language(ctx.guild.id,':warning: Эта команда доступна только в определенных каналах!')}", color=0xfcc21b)
-                await ctx.send(embed=embed, ephemeral=True)
+
 
 def setup(client):
     client.add_cog(class_ban(client))
